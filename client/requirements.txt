@@ -1,0 +1,5 @@
+PyQt6==6.6.0
+PyQt6-Charts==6.6.0
+requests==2.31.0
+matplotlib==3.8.0
+openpyxl==3.1.2
