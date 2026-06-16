@@ -147,7 +147,7 @@ class UsersWidget(QWidget):
         self.table.setColumnWidth(3, 100)
         self.table.setColumnWidth(4, 130)
         self.table.setColumnWidth(5, 80)
-        self.table.setColumnWidth(6, 120)
+        self.table.setColumnWidth(6, 110)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
@@ -164,7 +164,7 @@ class UsersWidget(QWidget):
         self.table.setRowCount(len(self.users))
         role_labels = {"superadmin": "🔑 Super Admin", "teacher": "👨‍🏫 O'qituvchi"}
         for row, u in enumerate(self.users):
-            self.table.setRowHeight(row, 44)
+            self.table.setRowHeight(row, 50)
             self.table.setItem(row, 0, QTableWidgetItem(str(u["id"])))
             self.table.setItem(row, 1, QTableWidgetItem(u["username"]))
             self.table.setItem(row, 2, QTableWidgetItem(u["full_name"]))
@@ -183,17 +183,22 @@ class UsersWidget(QWidget):
             self.table.setItem(row, 5, status)
 
             btn_widget = QWidget()
+            btn_widget.setStyleSheet("background: transparent;")
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(4, 2, 4, 2)
-            btn_layout.setSpacing(4)
+            btn_layout.setContentsMargins(6, 5, 6, 5)
+            btn_layout.setSpacing(6)
+            btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             edit_btn = QPushButton("✏️")
-            edit_btn.setFixedSize(30, 28)
+            edit_btn.setFixedSize(38, 32)
+            edit_btn.setObjectName("table_action")
+            edit_btn.setToolTip("Tahrirlash")
             edit_btn.clicked.connect(lambda _, uid=u["id"]: self._edit_user(uid))
 
             del_btn = QPushButton("🗑️")
-            del_btn.setFixedSize(30, 28)
-            del_btn.setObjectName("danger")
+            del_btn.setFixedSize(38, 32)
+            del_btn.setObjectName("table_action_danger")
+            del_btn.setToolTip("O'chirish")
             del_btn.clicked.connect(lambda _, uid=u["id"]: self._delete_user(uid))
 
             btn_layout.addWidget(edit_btn)
@@ -236,61 +241,227 @@ class UsersWidget(QWidget):
 
 # ── Settings Widget ───────────────────────────────────────────────────────────
 
+def _settings_card(header_icon: str, header_text: str, header_color: str) -> tuple:
+    """Returns (outer_frame, inner_layout) for a settings section card."""
+    frame = QFrame()
+    frame.setStyleSheet(f"""
+        QFrame#settings_card {{
+            background: {COLORS['card_bg']};
+            border: 1px solid {COLORS['border']};
+            border-radius: 14px;
+        }}
+    """)
+    frame.setObjectName("settings_card")
+
+    outer = QVBoxLayout(frame)
+    outer.setContentsMargins(22, 16, 22, 18)
+    outer.setSpacing(12)
+
+    hdr = QHBoxLayout()
+    icon_lbl = QLabel(header_icon)
+    icon_lbl.setFont(QFont("Segoe UI Emoji", 17))
+    icon_lbl.setStyleSheet("background: transparent; min-width: 0;")
+    icon_lbl.setFixedWidth(28)
+
+    title_lbl = QLabel(header_text)
+    title_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+    title_lbl.setStyleSheet(
+        f"color: {header_color}; background: transparent;"
+    )
+
+    hdr.addWidget(icon_lbl)
+    hdr.addWidget(title_lbl)
+    hdr.addStretch()
+    outer.addLayout(hdr)
+
+    div = QFrame()
+    div.setFrameShape(QFrame.Shape.HLine)
+    div.setStyleSheet(f"color: {COLORS['border']}; max-height: 1px;")
+    outer.addWidget(div)
+
+    return frame, outer
+
+
 class SettingsWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._setup_ui()
         self.refresh()
 
+    # ── UI ────────────────────────────────────────────────────────────────────
+
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(16)
 
-        title = QLabel("⚙️ Tizim sozlamalari")
+        # Page title + refresh button
+        hdr = QHBoxLayout()
+        title = QLabel("⚙️  Tizim Sozlamalari")
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        layout.addWidget(title)
+        refresh_btn = QPushButton("🔄 Yangilash")
+        refresh_btn.setObjectName("secondary")
+        refresh_btn.clicked.connect(self.refresh)
+        hdr.addWidget(title)
+        hdr.addStretch()
+        hdr.addWidget(refresh_btn)
+        root.addLayout(hdr)
 
-        # Telegram sozlamalari
-        tg_group = QGroupBox("🤖 Telegram Bot Sozlamalari")
-        tg_layout = QFormLayout(tg_group)
-        tg_layout.setSpacing(10)
-
-        self.bot_token_input = QLineEdit()
-        self.bot_token_input.setPlaceholderText("Bot token (BotFather'dan oling)")
-        self.bot_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        tg_layout.addRow("Bot Token:", self.bot_token_input)
-
-        self.notify_check = QCheckBox("O'qituvchiga natijalarni yuborish")
-        self.notify_check.setChecked(True)
-        tg_layout.addRow("", self.notify_check)
-
-        tg_help = QLabel(
-            "ℹ️ @BotFather orqali bot yarating, tokenni kiriting.\n"
-            "O'qituvchi Telegram chat ID'sini profil sozlamalarida kiriting."
+        # ── Card 1: Telegram Bot ─────────────────────────────────────────────
+        tg_frame, tg_lay = _settings_card(
+            "🤖", "Telegram Bot Sozlamalari", COLORS["primary_light"]
         )
-        tg_help.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
-        tg_help.setWordWrap(True)
-        tg_layout.addRow("", tg_help)
 
-        test_tg_btn = QPushButton("🔔 Telegram test xabari yuborish")
-        test_tg_btn.setObjectName("secondary")
-        test_tg_btn.clicked.connect(self._test_telegram)
-        tg_layout.addRow("", test_tg_btn)
+        # Token row
+        token_row = QHBoxLayout()
+        token_lbl = QLabel("Bot Token:")
+        token_lbl.setFixedWidth(100)
+        token_lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 12px;"
+            f" font-weight: 600; background: transparent;"
+        )
+        self.bot_token_input = QLineEdit()
+        self.bot_token_input.setPlaceholderText("BotFather'dan olingan token")
+        self.bot_token_input.setEchoMode(QLineEdit.EchoMode.Password)
 
-        layout.addWidget(tg_group)
+        show_btn = QPushButton("👁")
+        show_btn.setFixedSize(36, 36)
+        show_btn.setObjectName("secondary")
+        show_btn.setCheckable(True)
+        show_btn.setToolTip("Tokenni ko'rsatish / yashirish")
+        show_btn.toggled.connect(
+            lambda on: self.bot_token_input.setEchoMode(
+                QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
+            )
+        )
+        token_row.addWidget(token_lbl)
+        token_row.addWidget(self.bot_token_input)
+        token_row.addWidget(show_btn)
+        tg_lay.addLayout(token_row)
 
-        # Save button
-        save_btn = QPushButton("💾 Sozlamalarni saqlash")
+        # Notify teacher row
+        notif_row = QHBoxLayout()
+        notif_lbl = QLabel("Bildirishnoma:")
+        notif_lbl.setFixedWidth(100)
+        notif_lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 12px;"
+            f" font-weight: 600; background: transparent;"
+        )
+        self.notify_check = QCheckBox("O'qituvchiga test natijalarini yuborish")
+        self.notify_check.setChecked(True)
+        notif_row.addWidget(notif_lbl)
+        notif_row.addWidget(self.notify_check)
+        notif_row.addStretch()
+        tg_lay.addLayout(notif_row)
+
+        # How-to hint
+        hint = QLabel(
+            "ℹ️  @BotFather da yangi bot yarating → tokenni nusxalab bu yerga kiriting."
+        )
+        hint.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
+        )
+        hint.setWordWrap(True)
+        tg_lay.addWidget(hint)
+
+        # Test button
+        test_btn_row = QHBoxLayout()
+        test_btn = QPushButton("🔔  Telegram test xabari yuborish")
+        test_btn.setObjectName("secondary")
+        test_btn.clicked.connect(self._test_telegram)
+        test_btn_row.addWidget(test_btn)
+        test_btn_row.addStretch()
+        tg_lay.addLayout(test_btn_row)
+
+        root.addWidget(tg_frame)
+
+        # ── Card 2: Parent Telegram Guide ────────────────────────────────────
+        par_frame, par_lay = _settings_card(
+            "👨‍👩‍👧", "Ota-ona Telegram Bildirishnomalari", COLORS["accent_light"]
+        )
+
+        # Info box (amber tint)
+        info_box = QFrame()
+        info_box.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 183, 0, 0.07);
+                border: 1px solid rgba(255, 183, 0, 0.22);
+                border-radius: 10px;
+            }
+        """)
+        info_lay = QVBoxLayout(info_box)
+        info_lay.setContentsMargins(14, 12, 14, 12)
+        info_lay.setSpacing(8)
+
+        guide_title = QLabel("Qanday ishlaydi?")
+        guide_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        guide_title.setStyleSheet(
+            f"color: {COLORS['accent_light']}; background: transparent;"
+        )
+        info_lay.addWidget(guide_title)
+
+        _steps = [
+            ("1", "Ota-ona Telegram-da  @userinfobot  ga  /start  xabarini yuboring"),
+            ("2", "Bot ota-onaning  Chat ID  raqamini yuboradi (masalan: 123456789)"),
+            ("3", "O'qituvchi shu raqamni  O'quvchilar  bo'limida o'quvchi profiliga kiriting"),
+            ("4", "Farzand test yakunlaganda ota-onaga avtomatik bildirishnoma ketadi"),
+        ]
+        for num, step_txt in _steps:
+            row = QHBoxLayout()
+            row.setSpacing(10)
+
+            badge = QLabel(num)
+            badge.setFixedSize(24, 24)
+            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setStyleSheet(f"""
+                background: {COLORS['accent']};
+                color: white;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: bold;
+            """)
+
+            txt = QLabel(step_txt)
+            txt.setStyleSheet(
+                f"color: {COLORS['text_primary']}; font-size: 12px; background: transparent;"
+            )
+            txt.setWordWrap(True)
+
+            row.addWidget(badge)
+            row.addWidget(txt, stretch=1)
+            info_lay.addLayout(row)
+
+        par_lay.addWidget(info_box)
+
+        note = QLabel(
+            "💡  O'quvchilar ro'yxatini boshqarish uchun  "
+            "«O'quvchilar» bo'limini oching."
+        )
+        note.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
+        )
+        note.setWordWrap(True)
+        par_lay.addWidget(note)
+
+        root.addWidget(par_frame)
+
+        # ── Save row ─────────────────────────────────────────────────────────
+        save_row = QHBoxLayout()
+        save_row.addStretch()
+        save_btn = QPushButton("💾  Sozlamalarni saqlash")
         save_btn.setObjectName("success")
+        save_btn.setFixedSize(230, 40)
         save_btn.clicked.connect(self._save_settings)
-        layout.addWidget(save_btn)
+        save_row.addWidget(save_btn)
+        root.addLayout(save_row)
 
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet(f"color: {COLORS['success_light']};")
-        layout.addWidget(self.status_label)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        root.addWidget(self.status_label)
 
-        layout.addStretch()
+        root.addStretch()
+
+    # ── Data ──────────────────────────────────────────────────────────────────
 
     def refresh(self):
         try:
@@ -308,21 +479,28 @@ class SettingsWidget(QWidget):
             token = self.bot_token_input.text().strip()
             if token:
                 api.save_setting("telegram_bot_token", token)
-            api.save_setting("telegram_notify_teacher", str(self.notify_check.isChecked()).lower())
-            self.status_label.setText("✅ Sozlamalar saqlandi!")
+            api.save_setting(
+                "telegram_notify_teacher",
+                str(self.notify_check.isChecked()).lower(),
+            )
+            self.status_label.setText("✅  Sozlamalar saqlandi!")
+            self.status_label.setStyleSheet(f"color: {COLORS['success_light']}; font-size: 12px;")
         except APIError as e:
-            self.status_label.setText(f"❌ Xato: {e}")
+            self.status_label.setText(f"❌  Xato: {e}")
+            self.status_label.setStyleSheet(f"color: {COLORS['danger_light']}; font-size: 12px;")
 
     def _test_telegram(self):
         try:
             settings = api.get_settings()
             token = settings.get("telegram_bot_token", "")
             if not token:
-                QMessageBox.warning(self, "Xato", "Bot token kiritilmagan!")
+                QMessageBox.warning(self, "Xato", "Bot token kiritilmagan!\nAvval tokenni kiriting va saqlang.")
                 return
-            QMessageBox.information(self, "Test",
-                                    "Test xabari yuborilmoqda...\n"
-                                    "O'qituvchi profilida Telegram ID bo'lishi kerak.")
+            QMessageBox.information(
+                self, "Test xabari",
+                "Test xabari yuborilmoqda...\n\n"
+                "O'qituvchi profilida Telegram Chat ID kiritilgan bo'lishi kerak."
+            )
         except APIError as e:
             QMessageBox.critical(self, "Xato", str(e))
 

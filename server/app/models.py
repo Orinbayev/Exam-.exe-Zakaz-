@@ -152,6 +152,7 @@ class StudentClass(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False)  # "9-A", "10-B"
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     teacher = relationship("User")
@@ -171,3 +172,13 @@ class Student(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     student_class = relationship("StudentClass", back_populates="students")
+
+
+class ClassTest(Base):
+    """Sinf ↔ Test bog'lanish jadvali"""
+    __tablename__ = "class_tests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("student_classes.id"), nullable=False)
+    test_id = Column(Integer, ForeignKey("tests.id"), nullable=False)
+    assigned_at = Column(DateTime, default=datetime.utcnow)

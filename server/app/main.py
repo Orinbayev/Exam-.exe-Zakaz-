@@ -54,6 +54,15 @@ async def startup():
     Base.metadata.create_all(bind=engine)
     logger.info("Ma'lumotlar bazasi tayyor")
 
+    # Migration: add is_active to student_classes if missing
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+
     db = SessionLocal()
     try:
         superadmin = db.query(User).filter(User.role == "superadmin").first()

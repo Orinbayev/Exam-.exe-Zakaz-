@@ -1,6 +1,10 @@
 """
 QSS stillari - zamonaviy, rang-barang dizayn.
 """
+import os as _os
+
+_ASSETS_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "assets")
+_CHECK_SVG = _os.path.join(_ASSETS_DIR, "check.svg").replace("\\", "/")
 
 # Asosiy ranglar
 COLORS = {
@@ -264,20 +268,69 @@ QSpinBox, QDoubleSpinBox {{
 /* --- CheckBox --- */
 QCheckBox {{
     color: {COLORS['text_primary']};
-    spacing: 8px;
+    spacing: 10px;
+    font-size: 13px;
 }}
 
 QCheckBox::indicator {{
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
     border: 2px solid {COLORS['border']};
     background: {COLORS['bg_medium']};
 }}
 
+QCheckBox::indicator:hover {{
+    border-color: {COLORS['primary_light']};
+    background: {COLORS['bg_light']};
+}}
+
 QCheckBox::indicator:checked {{
     background-color: {COLORS['primary']};
-    border-color: {COLORS['primary']};
+    border: 2px solid {COLORS['primary_light']};
+    image: url("{_CHECK_SVG}");
+}}
+
+/* --- Table action buttons --- */
+QPushButton#table_action {{
+    background-color: {COLORS['bg_light']};
+    color: {COLORS['text_primary']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 6px;
+    font-size: 15px;
+    padding: 0px;
+    min-height: 0px;
+    min-width: 0px;
+}}
+
+QPushButton#table_action:hover {{
+    background-color: {COLORS['primary']};
+    border-color: {COLORS['primary_light']};
+}}
+
+QPushButton#table_action:pressed {{
+    background-color: {COLORS['primary_dark']};
+}}
+
+QPushButton#table_action_danger {{
+    background-color: {COLORS['bg_light']};
+    color: {COLORS['danger_light']};
+    border: 1px solid {COLORS['danger']};
+    border-radius: 6px;
+    font-size: 15px;
+    padding: 0px;
+    min-height: 0px;
+    min-width: 0px;
+}}
+
+QPushButton#table_action_danger:hover {{
+    background-color: {COLORS['danger']};
+    color: white;
+    border-color: {COLORS['danger_light']};
+}}
+
+QPushButton#table_action_danger:pressed {{
+    background-color: #8B0000;
 }}
 
 /* --- MessageBox --- */
@@ -310,6 +363,47 @@ QToolTip {{
     border: 1px solid {COLORS['border']};
     padding: 5px 8px;
     border-radius: 4px;
+}}
+
+/* --- Dialog Header / Footer --- */
+QFrame#dialog_header {{
+    background-color: {COLORS['bg_light']};
+    border-bottom: 1px solid {COLORS['border']};
+}}
+
+QFrame#dialog_footer {{
+    background-color: {COLORS['bg_medium']};
+    border-top: 1px solid {COLORS['border']};
+}}
+
+/* --- GroupBox --- */
+QGroupBox {{
+    background-color: transparent;
+    border: 1px solid {COLORS['border']};
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    color: {COLORS['primary_light']};
+}}
+
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 8px;
+    color: {COLORS['primary_light']};
+    left: 12px;
+}}
+
+/* --- ScrollArea --- */
+QScrollArea {{
+    background-color: {COLORS['bg_dark']};
+    border: none;
+}}
+
+QScrollArea > QWidget > QWidget {{
+    background-color: {COLORS['bg_dark']};
 }}
 """
 

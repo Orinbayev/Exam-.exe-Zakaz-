@@ -211,6 +211,18 @@ class APIClient:
     def delete_student(self, student_id: int):
         return self._request("DELETE", f"/api/students/{student_id}")
 
+    def toggle_class_active(self, class_id: int) -> dict:
+        return self._request("PATCH", f"/api/students/classes/{class_id}/toggle-active")
+
+    def get_class_tests_public(self, class_id: int) -> list:
+        return self._request("GET", f"/api/students/classes/{class_id}/tests")
+
+    def assign_test_to_class(self, class_id: int, test_id: int) -> dict:
+        return self._request("POST", f"/api/students/classes/{class_id}/tests/{test_id}")
+
+    def unassign_test_from_class(self, class_id: int, test_id: int) -> dict:
+        return self._request("DELETE", f"/api/students/classes/{class_id}/tests/{test_id}")
+
     # ── Stats ─────────────────────────────────────────────────────────────────
 
     def get_stats_overview(self) -> dict:

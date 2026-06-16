@@ -1,5 +1,5 @@
 """
-Sinflar va o'quvchilar boshqaruvi.
+Sinflar va o'quvchilar boshqaruvi + sinf aktivlashtirish + test bog'lash.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -15,14 +15,7 @@ router = APIRouter(prefix="/api/students", tags=["students"])
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
 
 class ClassCreate(BaseModel):
-    name: str  # "9-A", "10-B"
-
-class ClassOut(BaseModel):
-    id: int
     name: str
-    teacher_id: int
-    student_count: int = 0
-    model_config = {"from_attributes": True}
 
 class StudentCreate(BaseModel):
     first_name: str
@@ -34,30 +27,20 @@ class StudentUpdate(BaseModel):
     last_name: Optional[str] = None
     parent_telegram_id: Optional[str] = None
 
-class StudentOut(BaseModel):
-    id: int
-    first_name: str
-    last_name: str
-    class_id: int
-    parent_telegram_id: Optional[str] = None
-    model_config = {"from_attributes": True}
-
-
-# ── Lazy import helper ────────────────────────────────────────────────────────
 
 def get_models():
-    from ..models import StudentClass, Student
-    return StudentClass, Student
+    from ..models import StudentClass, Student, ClassTest
+    return StudentClass, Student, ClassTest
 
 
-# ── Classes ───────────────────────────────────────────────────────────────────
+# ── Classes (teacher) ─────────────────────────────────────────────────────────
 
 @router.get("/classes")
 def list_classes(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
+    StudentClass, Student, ClassTest = get_models()
     q = db.query(StudentClass)
     if current_user.role != "superadmin":
         q = q.filter(StudentClass.teacher_id == current_user.id)
@@ -66,15 +49,19 @@ def list_classes(
         "id": c.id,
         "name": c.name,
         "teacher_id": c.teacher_id,
-        "student_count": len(c.students)
+        "is_active": bool(c.is_active),
+        "student_count": len(c.students),
+        "test_ids": [ct.test_id for ct in db.query(ClassTest).filter(ClassTest.class_id == c.id).all()]
     } for c in classes]
 
 
 @router.get("/classes/public")
 def public_classes(db: Session = Depends(get_db)):
-    """O'quvchi info oynasi uchun (token talab etilmaydi)."""
-    StudentClass, Student = get_models()
-    classes = db.query(StudentClass).order_by(StudentClass.name).all()
+    """Faqat aktiv sinflar — token talab etilmaydi."""
+    StudentClass, Student, ClassTest = get_models()
+    classes = (db.query(StudentClass)
+               .filter(StudentClass.is_active == True)
+               .order_by(StudentClass.name).all())
     return [{"id": c.id, "name": c.name} for c in classes]
 
 
@@ -84,12 +71,29 @@ def create_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
-    cls = StudentClass(name=data.name, teacher_id=current_user.id)
+    StudentClass, Student, ClassTest = get_models()
+    cls = StudentClass(name=data.name, teacher_id=current_user.id, is_active=False)
     db.add(cls)
     db.commit()
     db.refresh(cls)
-    return {"id": cls.id, "name": cls.name, "teacher_id": cls.teacher_id, "student_count": 0}
+    return {"id": cls.id, "name": cls.name, "teacher_id": cls.teacher_id,
+            "is_active": False, "student_count": 0, "test_ids": []}
+
+
+@router.patch("/classes/{class_id}/toggle-active")
+def toggle_class_active(
+    class_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    """Sinfni aktiv / noaktiv qilish."""
+    StudentClass, Student, ClassTest = get_models()
+    cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Sinf topilmadi")
+    cls.is_active = not bool(cls.is_active)
+    db.commit()
+    return {"id": cls.id, "is_active": bool(cls.is_active)}
 
 
 @router.delete("/classes/{class_id}")
@@ -98,13 +102,70 @@ def delete_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
+    StudentClass, Student, ClassTest = get_models()
     cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="Sinf topilmadi")
     db.delete(cls)
     db.commit()
     return {"message": "Sinf o'chirildi"}
+
+
+# ── Class ↔ Test links ────────────────────────────────────────────────────────
+
+@router.get("/classes/{class_id}/tests")
+def get_class_tests(class_id: int, db: Session = Depends(get_db)):
+    """Sinfga biriktirilgan testlar (public)."""
+    StudentClass, Student, ClassTest = get_models()
+    from ..models import Test
+    links = db.query(ClassTest).filter(ClassTest.class_id == class_id).all()
+    result = []
+    for lnk in links:
+        t = db.query(Test).filter(Test.id == lnk.test_id, Test.is_active == True).first()
+        if t:
+            result.append({
+                "id": t.id,
+                "name": t.name,
+                "question_count": len(t.test_questions),
+                "time_limit": t.time_limit,
+            })
+    return result
+
+
+@router.post("/classes/{class_id}/tests/{test_id}")
+def assign_test_to_class(
+    class_id: int,
+    test_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    StudentClass, Student, ClassTest = get_models()
+    existing = db.query(ClassTest).filter(
+        ClassTest.class_id == class_id, ClassTest.test_id == test_id
+    ).first()
+    if existing:
+        return {"message": "Allaqachon biriktirilgan"}
+    link = ClassTest(class_id=class_id, test_id=test_id)
+    db.add(link)
+    db.commit()
+    return {"message": "Test biriktirildi"}
+
+
+@router.delete("/classes/{class_id}/tests/{test_id}")
+def unassign_test_from_class(
+    class_id: int,
+    test_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    StudentClass, Student, ClassTest = get_models()
+    link = db.query(ClassTest).filter(
+        ClassTest.class_id == class_id, ClassTest.test_id == test_id
+    ).first()
+    if link:
+        db.delete(link)
+        db.commit()
+    return {"message": "Test ajratildi"}
 
 
 # ── Students ──────────────────────────────────────────────────────────────────
@@ -115,25 +176,21 @@ def list_students(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
-    students = db.query(Student).filter(Student.class_id == class_id)\
-        .order_by(Student.last_name).all()
-    return [{
-        "id": s.id,
-        "first_name": s.first_name,
-        "last_name": s.last_name,
-        "class_id": s.class_id,
-        "parent_telegram_id": s.parent_telegram_id
-    } for s in students]
+    StudentClass, Student, ClassTest = get_models()
+    students = (db.query(Student).filter(Student.class_id == class_id)
+                .order_by(Student.last_name).all())
+    return [{"id": s.id, "first_name": s.first_name, "last_name": s.last_name,
+             "class_id": s.class_id, "parent_telegram_id": s.parent_telegram_id}
+            for s in students]
 
 
 @router.get("/classes/{class_id}/students/public")
 def public_students(class_id: int, db: Session = Depends(get_db)):
-    """O'quvchi info oynasi uchun."""
-    StudentClass, Student = get_models()
-    students = db.query(Student).filter(Student.class_id == class_id)\
-        .order_by(Student.last_name).all()
-    return [{"id": s.id, "first_name": s.first_name, "last_name": s.last_name} for s in students]
+    StudentClass, Student, ClassTest = get_models()
+    students = (db.query(Student).filter(Student.class_id == class_id)
+                .order_by(Student.last_name).all())
+    return [{"id": s.id, "first_name": s.first_name, "last_name": s.last_name}
+            for s in students]
 
 
 @router.post("/classes/{class_id}/students")
@@ -143,13 +200,9 @@ def add_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
-    student = Student(
-        first_name=data.first_name,
-        last_name=data.last_name,
-        class_id=class_id,
-        parent_telegram_id=data.parent_telegram_id
-    )
+    StudentClass, Student, ClassTest = get_models()
+    student = Student(first_name=data.first_name, last_name=data.last_name,
+                      class_id=class_id, parent_telegram_id=data.parent_telegram_id)
     db.add(student)
     db.commit()
     db.refresh(student)
@@ -165,7 +218,7 @@ def update_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
+    StudentClass, Student, ClassTest = get_models()
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="O'quvchi topilmadi")
@@ -184,7 +237,7 @@ def delete_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student = get_models()
+    StudentClass, Student, ClassTest = get_models()
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="O'quvchi topilmadi")

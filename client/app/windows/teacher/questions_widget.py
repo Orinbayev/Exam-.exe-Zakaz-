@@ -188,7 +188,7 @@ class QuestionsWidget(QWidget):
         self.table.setColumnWidth(3, 90)
         self.table.setColumnWidth(4, 100)
         self.table.setColumnWidth(5, 130)
-        self.table.setColumnWidth(6, 120)
+        self.table.setColumnWidth(6, 110)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
@@ -229,7 +229,7 @@ class QuestionsWidget(QWidget):
         cat_map = {c["id"]: c["name"] for c in self.categories}
 
         for row, q in enumerate(questions):
-            self.table.setRowHeight(row, 42)
+            self.table.setRowHeight(row, 48)
             self.table.setItem(row, 0, QTableWidgetItem(str(q["id"])))
 
             text_item = QTableWidgetItem(q["text"][:80] + ("..." if len(q["text"]) > 80 else ""))
@@ -251,18 +251,21 @@ class QuestionsWidget(QWidget):
 
             # Amallar
             btn_widget = QWidget()
+            btn_widget.setStyleSheet("background: transparent;")
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(4, 2, 4, 2)
-            btn_layout.setSpacing(4)
+            btn_layout.setContentsMargins(6, 5, 6, 5)
+            btn_layout.setSpacing(6)
+            btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             edit_btn = QPushButton("✏️")
-            edit_btn.setFixedSize(30, 28)
+            edit_btn.setFixedSize(38, 32)
+            edit_btn.setObjectName("table_action")
             edit_btn.setToolTip("Tahrirlash")
             edit_btn.clicked.connect(lambda _, qid=q["id"]: self._edit_question(qid))
 
             del_btn = QPushButton("🗑️")
-            del_btn.setFixedSize(30, 28)
-            del_btn.setObjectName("danger")
+            del_btn.setFixedSize(38, 32)
+            del_btn.setObjectName("table_action_danger")
             del_btn.setToolTip("O'chirish")
             del_btn.clicked.connect(lambda _, qid=q["id"]: self._delete_question(qid))
 

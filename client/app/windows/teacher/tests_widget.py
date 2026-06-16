@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QSpinBox, QDoubleSpinBox, QCheckBox, QTextEdit,
     QMessageBox, QHeaderView, QDialogButtonBox, QListWidget,
     QListWidgetItem, QSplitter, QFrame, QAbstractItemView,
-    QGroupBox, QGridLayout
+    QGroupBox, QGridLayout, QScrollArea
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -16,24 +16,41 @@ from ...styles import COLORS
 
 
 class GradeSettingsWidget(QWidget):
+    GRADE_COLORS = {
+        "5": "#4CAF50",
+        "4": "#42A5F5",
+        "3": "#FFB300",
+        "2": "#EF5350",
+    }
+    DEFAULTS = {"5": 90.0, "4": 70.0, "3": 50.0, "2": 0.0}
+
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QGridLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(10)
+        layout.setColumnMinimumWidth(0, 120)
+        layout.setColumnStretch(1, 1)
 
-        layout.addWidget(QLabel("Baho"), 0, 0)
-        layout.addWidget(QLabel("Minimum foiz (%)"), 0, 1)
+        for col, text in enumerate(["Baho", "Minimum foiz (%)"]):
+            hdr = QLabel(text)
+            hdr.setStyleSheet(
+                f"color: {COLORS['text_secondary']}; font-size: 12px; font-weight: 600;"
+            )
+            layout.addWidget(hdr, 0, col)
 
         self.grade_inputs = {}
         for i, grade in enumerate(["5", "4", "3", "2"], start=1):
-            label = QLabel(f"Baho {grade}:")
+            lbl = QLabel(f"  Baho {grade}")
+            lbl.setStyleSheet(
+                f"color: {self.GRADE_COLORS[grade]}; font-weight: bold; font-size: 13px;"
+            )
             spin = QDoubleSpinBox()
             spin.setRange(0, 100)
             spin.setSuffix(" %")
-            defaults = {"5": 90.0, "4": 70.0, "3": 50.0, "2": 0.0}
-            spin.setValue(defaults[grade])
-            layout.addWidget(label, i, 0)
+            spin.setFixedHeight(34)
+            spin.setValue(self.DEFAULTS[grade])
+            layout.addWidget(lbl, i, 0)
             layout.addWidget(spin, i, 1)
             self.grade_inputs[grade] = spin
 
@@ -50,60 +67,165 @@ class TestDialog(QDialog):
     def __init__(self, test: dict = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Test yaratish" if not test else "Testni tahrirlash")
-        self.setMinimumWidth(520)
+        self.setFixedWidth(560)
+        self.setMinimumHeight(620)
         self.test = test
         self._setup_ui()
         if test:
             self._fill_data(test)
 
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+    # ── helpers ──────────────────────────────────────────────────────────────
 
-        form = QFormLayout()
-        form.setSpacing(10)
+    def _make_label(self, text: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 13px; font-weight: 600;"
+        )
+        lbl.setMinimumWidth(138)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        return lbl
+
+    def _make_section_title(self, text: str) -> QLabel:
+        lbl = QLabel(text.upper())
+        lbl.setStyleSheet(
+            f"color: {COLORS['primary_light']}; font-size: 11px; font-weight: bold; "
+            f"letter-spacing: 1px;"
+        )
+        return lbl
+
+    def _make_divider(self) -> QFrame:
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet(f"color: {COLORS['border']}; margin: 2px 0;")
+        return line
+
+    # ── main UI ──────────────────────────────────────────────────────────────
+
+    def _setup_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        # ── Header ────────────────────────────────────────────────────────
+        header = QFrame()
+        header.setObjectName("dialog_header")
+        header.setFixedHeight(58)
+        h_lay = QHBoxLayout(header)
+        h_lay.setContentsMargins(24, 0, 24, 0)
+
+        icon = "➕" if not self.test else "✏️"
+        title_text = "Test yaratish" if not self.test else "Testni tahrirlash"
+        title_lbl = QLabel(f"{icon}   {title_text}")
+        title_lbl.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
+        h_lay.addWidget(title_lbl)
+        root.addWidget(header)
+
+        # ── Scroll area ───────────────────────────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        body = QWidget()
+        body.setStyleSheet(f"background-color: {COLORS['bg_dark']};")
+        body_lay = QVBoxLayout(body)
+        body_lay.setContentsMargins(28, 20, 28, 20)
+        body_lay.setSpacing(14)
+
+        # ── Section 1: Asosiy ma'lumotlar ─────────────────────────────────
+        body_lay.addWidget(self._make_section_title("Asosiy ma'lumotlar"))
+
+        form1 = QFormLayout()
+        form1.setSpacing(12)
+        form1.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Test nomini kiriting")
-        form.addRow("Test nomi *:", self.name_input)
+        self.name_input.setPlaceholderText("Test nomini kiriting...")
+        form1.addRow(self._make_label("Test nomi *:"), self.name_input)
 
         self.desc_input = QTextEdit()
-        self.desc_input.setPlaceholderText("Test haqida qisqacha ma'lumot (ixtiyoriy)")
-        self.desc_input.setMaximumHeight(70)
-        form.addRow("Tavsif:", self.desc_input)
+        self.desc_input.setPlaceholderText("Test haqida qisqacha ma'lumot (ixtiyoriy)...")
+        self.desc_input.setFixedHeight(68)
+        form1.addRow(self._make_label("Tavsif:"), self.desc_input)
+
+        body_lay.addLayout(form1)
+
+        # ── Section 2: Sozlamalar ──────────────────────────────────────────
+        body_lay.addWidget(self._make_divider())
+        body_lay.addWidget(self._make_section_title("Sozlamalar"))
+
+        form2 = QFormLayout()
+        form2.setSpacing(12)
+        form2.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         self.time_spin = QSpinBox()
         self.time_spin.setRange(1, 300)
         self.time_spin.setValue(30)
         self.time_spin.setSuffix(" daqiqa")
-        form.addRow("Vaqt chegarasi:", self.time_spin)
+        self.time_spin.setFixedWidth(150)
+        form2.addRow(self._make_label("Vaqt chegarasi:"), self.time_spin)
 
         self.pass_spin = QDoubleSpinBox()
         self.pass_spin.setRange(0, 100)
         self.pass_spin.setValue(60)
         self.pass_spin.setSuffix(" %")
-        form.addRow("O'tish foizi:", self.pass_spin)
+        self.pass_spin.setFixedWidth(150)
+        form2.addRow(self._make_label("O'tish foizi:"), self.pass_spin)
 
-        self.shuffle_q = QCheckBox("Savollarni aralashtirish")
-        self.shuffle_a = QCheckBox("Variantlarni aralashtirish")
-        form.addRow("", self.shuffle_q)
-        form.addRow("", self.shuffle_a)
+        body_lay.addLayout(form2)
 
-        layout.addLayout(form)
+        checks_frame = QFrame()
+        checks_lay = QVBoxLayout(checks_frame)
+        checks_lay.setContentsMargins(142, 4, 0, 0)
+        checks_lay.setSpacing(8)
+        self.shuffle_q = QCheckBox("  Savollarni aralashtirish")
+        self.shuffle_a = QCheckBox("  Variantlarni aralashtirish")
+        checks_lay.addWidget(self.shuffle_q)
+        checks_lay.addWidget(self.shuffle_a)
+        body_lay.addWidget(checks_frame)
 
-        # Grade settings
-        grade_group = QGroupBox("Baholash tizimi")
-        self.grade_widget = GradeSettingsWidget()
-        grade_layout = QVBoxLayout(grade_group)
-        grade_layout.addWidget(self.grade_widget)
-        layout.addWidget(grade_group)
+        # ── Section 3: Baholash tizimi ────────────────────────────────────
+        body_lay.addWidget(self._make_divider())
+        body_lay.addWidget(self._make_section_title("Baholash tizimi"))
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        grade_frame = QFrame()
+        grade_frame.setStyleSheet(
+            f"background-color: {COLORS['bg_medium']}; "
+            f"border: 1px solid {COLORS['border']}; border-radius: 8px;"
         )
-        buttons.accepted.connect(self._validate_and_accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        grade_outer = QVBoxLayout(grade_frame)
+        grade_outer.setContentsMargins(16, 12, 16, 12)
+        self.grade_widget = GradeSettingsWidget()
+        grade_outer.addWidget(self.grade_widget)
+        body_lay.addWidget(grade_frame)
+
+        body_lay.addStretch()
+        scroll.setWidget(body)
+        root.addWidget(scroll)
+
+        # ── Footer ────────────────────────────────────────────────────────
+        footer = QFrame()
+        footer.setObjectName("dialog_footer")
+        footer.setFixedHeight(60)
+        f_lay = QHBoxLayout(footer)
+        f_lay.setContentsMargins(24, 0, 24, 0)
+        f_lay.setSpacing(10)
+        f_lay.addStretch()
+
+        cancel_btn = QPushButton("Bekor qilish")
+        cancel_btn.setObjectName("secondary")
+        cancel_btn.setFixedSize(130, 36)
+        cancel_btn.clicked.connect(self.reject)
+
+        save_btn = QPushButton("  Saqlash")
+        save_btn.setObjectName("success")
+        save_btn.setFixedSize(130, 36)
+        save_btn.clicked.connect(self._validate_and_accept)
+
+        f_lay.addWidget(cancel_btn)
+        f_lay.addWidget(save_btn)
+        root.addWidget(footer)
 
     def _fill_data(self, test: dict):
         self.name_input.setText(test.get("name", ""))
@@ -301,7 +423,7 @@ class TestsWidget(QWidget):
         self.table.setColumnWidth(4, 80)
         self.table.setColumnWidth(5, 80)
         self.table.setColumnWidth(6, 110)
-        self.table.setColumnWidth(7, 200)
+        self.table.setColumnWidth(7, 210)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
@@ -318,7 +440,7 @@ class TestsWidget(QWidget):
     def _render_table(self):
         self.table.setRowCount(len(self.tests))
         for row, t in enumerate(self.tests):
-            self.table.setRowHeight(row, 46)
+            self.table.setRowHeight(row, 50)
             self.table.setItem(row, 0, QTableWidgetItem(str(t["id"])))
             self.table.setItem(row, 1, QTableWidgetItem(t["name"]))
             self.table.setItem(row, 2, QTableWidgetItem(str(t.get("question_count", 0))))
@@ -333,28 +455,33 @@ class TestsWidget(QWidget):
             self.table.setItem(row, 6, QTableWidgetItem(t.get("created_at", "")[:10]))
 
             btn_widget = QWidget()
+            btn_widget.setStyleSheet("background: transparent;")
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(4, 2, 4, 2)
-            btn_layout.setSpacing(3)
+            btn_layout.setContentsMargins(6, 5, 6, 5)
+            btn_layout.setSpacing(5)
+            btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             q_btn = QPushButton("📝")
-            q_btn.setFixedSize(30, 28)
+            q_btn.setFixedSize(38, 32)
+            q_btn.setObjectName("table_action")
             q_btn.setToolTip("Savollarni boshqarish")
             q_btn.clicked.connect(lambda _, tid=t["id"]: self._manage_questions(tid))
 
             edit_btn = QPushButton("✏️")
-            edit_btn.setFixedSize(30, 28)
+            edit_btn.setFixedSize(38, 32)
+            edit_btn.setObjectName("table_action")
             edit_btn.setToolTip("Tahrirlash")
             edit_btn.clicked.connect(lambda _, tid=t["id"]: self._edit_test(tid))
 
             copy_btn = QPushButton("📋")
-            copy_btn.setFixedSize(30, 28)
+            copy_btn.setFixedSize(38, 32)
+            copy_btn.setObjectName("table_action")
             copy_btn.setToolTip("Nusxalash")
             copy_btn.clicked.connect(lambda _, tid=t["id"]: self._copy_test(tid))
 
             del_btn = QPushButton("🗑️")
-            del_btn.setFixedSize(30, 28)
-            del_btn.setObjectName("danger")
+            del_btn.setFixedSize(38, 32)
+            del_btn.setObjectName("table_action_danger")
             del_btn.setToolTip("O'chirish")
             del_btn.clicked.connect(lambda _, tid=t["id"]: self._delete_test(tid))
 
@@ -394,6 +521,16 @@ class TestsWidget(QWidget):
         self.refresh()
 
     def _copy_test(self, test_id: int):
+        test = next((t for t in self.tests if t["id"] == test_id), None)
+        name = test["name"] if test else f"#{test_id}"
+        reply = QMessageBox.question(
+            self, "Nusxalash",
+            f"'{name}' testini nusxalashni tasdiqlaysizmi?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
         try:
             api.copy_test(test_id)
             self.refresh()

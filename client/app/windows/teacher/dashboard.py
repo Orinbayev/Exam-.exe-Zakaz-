@@ -1,92 +1,182 @@
 """
-Teacher/Admin asosiy boshqaruv paneli.
+Teacher/Admin asosiy boshqaruv paneli — yig'iladigan sidebar.
 """
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QStackedWidget, QFrame, QMessageBox, QScrollArea,
-    QSizePolicy, QDialog, QFormLayout, QLineEdit, QComboBox,
-    QTextEdit, QDialogButtonBox, QSpinBox, QCheckBox
+    QPushButton, QStackedWidget, QFrame, QMessageBox, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QFont, QColor, QPalette
+from PyQt6.QtCore import (
+    Qt, QPropertyAnimation, QAbstractAnimation, QEasingCurve, QSize
+)
+from PyQt6.QtGui import QFont, QGuiApplication
 from ...api_client import api, APIError
 from ...styles import MAIN_STYLE, COLORS
-from .questions_widget import QuestionsWidget
-from .tests_widget import TestsWidget
-from .results_widget import ResultsWidget
-from .stats_widget import StatsWidget
 
 
-class SidebarButton(QPushButton):
+# ─────────────────────────────────────────────────────────────────────────────
+# Konstantlar
+# ─────────────────────────────────────────────────────────────────────────────
+
+SIDEBAR_EXPANDED  = 220
+SIDEBAR_COLLAPSED = 56
+ANIM_MS = 220
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sidebar tugmasi
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NavButton(QPushButton):
+    """Icon + text ko'rsatadigan, collapsed holatda faqat icon."""
+
+    _BASE = f"""
+        QPushButton {{
+            background: transparent;
+            color: {COLORS['text_secondary']};
+            text-align: left;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: normal;
+            border: none;
+        }}
+        QPushButton:hover {{
+            background: {COLORS['bg_light']};
+            color: white;
+        }}
+        QPushButton:checked {{
+            background: {COLORS['primary']};
+            color: white;
+            font-weight: bold;
+        }}
+    """
+
     def __init__(self, icon: str, text: str, parent=None):
-        super().__init__(f"  {icon}  {text}", parent)
-        self.setObjectName("sidebar_btn")
+        super().__init__(parent)
+        self._icon = icon
+        self._text = text
+        self._collapsed = False
+        self.setObjectName("nav_btn")
         self.setCheckable(True)
-        self.setMinimumHeight(46)
-        self.setFont(QFont("Segoe UI", 13))
+        self.setMinimumHeight(44)
+        self.setStyleSheet(self._BASE)
+        self._refresh()
 
+    def set_collapsed(self, c: bool):
+        self._collapsed = c
+        self._refresh()
+
+    def _refresh(self):
+        if self._collapsed:
+            self.setText(self._icon)
+            self.setFont(QFont("Segoe UI Emoji", 16))
+            self.setToolTip(self._text)
+            self.setStyleSheet(self._BASE + """
+                QPushButton { text-align: center; padding: 10px 4px; }
+            """)
+        else:
+            self.setText(f"  {self._icon}  {self._text}")
+            self.setFont(QFont("Segoe UI", 13))
+            self.setToolTip("")
+            self.setStyleSheet(self._BASE)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Asosiy dashboard
+# ─────────────────────────────────────────────────────────────────────────────
 
 class TeacherDashboard(QMainWindow):
     def __init__(self, is_superadmin: bool = False):
         super().__init__()
         self.is_superadmin = is_superadmin
+        self._collapsed = False
         self.setWindowTitle(
-            f"Smart Exam System - {'Super Admin' if is_superadmin else 'O\'qituvchi'} Paneli"
+            f"Smart Exam System — {'Super Admin' if is_superadmin else 'O\'qituvchi'} paneli"
         )
-        self.setMinimumSize(1100, 700)
+        self.setMinimumSize(900, 600)
         self.setStyleSheet(MAIN_STYLE)
         self._setup_ui()
         self._show_section(0)
-        self._maximize()
-
-    def _maximize(self):
-        from PyQt6.QtGui import QGuiApplication
-        screen = QGuiApplication.primaryScreen().geometry()
-        self.setGeometry(screen)
         self.showMaximized()
+
+    # ── UI qurilishi ──────────────────────────────────────────────────────────
 
     def _setup_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
-        main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # ── Sidebar ───────────────────────────────────────────────────────────
-        sidebar = QFrame()
-        sidebar.setFixedWidth(220)
-        sidebar.setStyleSheet(f"""
+        # ── SIDEBAR ───────────────────────────────────────────────────────────
+        self.sidebar = QFrame()
+        self.sidebar.setFixedWidth(SIDEBAR_EXPANDED)
+        self.sidebar.setStyleSheet(f"""
             QFrame {{
-                background-color: {COLORS['bg_medium']};
+                background: {COLORS['bg_medium']};
                 border-right: 1px solid {COLORS['border']};
             }}
         """)
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(10, 16, 10, 16)
-        sidebar_layout.setSpacing(4)
 
-        # Logo
-        logo_label = QLabel("🎓 Smart Exam")
-        logo_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        logo_label.setStyleSheet(f"color: {COLORS['primary_light']}; padding: 8px 10px;")
-        sidebar_layout.addWidget(logo_label)
+        self._sb_lay = QVBoxLayout(self.sidebar)
+        self._sb_lay.setContentsMargins(8, 12, 8, 12)
+        self._sb_lay.setSpacing(2)
 
-        # User info
-        role_text = "Super Admin" if self.is_superadmin else "O'qituvchi"
-        user_label = QLabel(f"👤 {api.user_name}\n{role_text}")
-        user_label.setStyleSheet(f"""
+        # ── Sidebar yuqori qismi: logo + toggle ──────────────────────────────
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(4, 0, 0, 0)
+        top_row.setSpacing(0)
+
+        self._logo_lbl = QLabel("🎓 Smart Exam")
+        self._logo_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        self._logo_lbl.setStyleSheet(
+            f"color: {COLORS['primary_light']}; padding: 6px 6px; background: transparent;"
+        )
+        top_row.addWidget(self._logo_lbl)
+        top_row.addStretch()
+
+        self._toggle_btn = QPushButton("◀")
+        self._toggle_btn.setFixedSize(32, 32)
+        self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._toggle_btn.setToolTip("Sidebarni yig'ish / yoyish")
+        self._toggle_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['primary']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 11px;
+                font-weight: bold;
+                min-height: 0;
+                padding: 0;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['primary_light']};
+            }}
+            QPushButton:pressed {{
+                background: {COLORS['primary_dark']};
+            }}
+        """)
+        self._toggle_btn.clicked.connect(self._toggle_sidebar)
+        top_row.addWidget(self._toggle_btn)
+        self._sb_lay.addLayout(top_row)
+        self._sb_lay.addSpacing(4)
+
+        # ── Foydalanuvchi info ────────────────────────────────────────────────
+        role_txt = "Super Admin" if self.is_superadmin else "O'qituvchi"
+        self._user_lbl = QLabel(f"👤 {api.user_name}\n{role_txt}")
+        self._user_lbl.setStyleSheet(f"""
             color: {COLORS['text_secondary']};
             font-size: 11px;
-            padding: 6px 10px;
+            padding: 6px 8px;
             background: rgba(255,255,255,0.05);
-            border-radius: 6px;
+            border-radius: 8px;
         """)
-        user_label.setWordWrap(True)
-        sidebar_layout.addWidget(user_label)
-        sidebar_layout.addSpacing(10)
+        self._user_lbl.setWordWrap(True)
+        self._sb_lay.addWidget(self._user_lbl)
+        self._sb_lay.addSpacing(8)
 
-        # Nav buttons
-        self.nav_buttons = []
+        # ── Nav tugmalari ─────────────────────────────────────────────────────
         nav_items = [
             ("📋", "Testlar"),
             ("📝", "Savollar"),
@@ -101,90 +191,178 @@ class TeacherDashboard(QMainWindow):
                 ("📋", "Audit log"),
             ]
 
-        for i, (icon, text) in enumerate(nav_items):
-            btn = SidebarButton(icon, text)
+        self.nav_buttons: list[NavButton] = []
+        for i, (ico, txt) in enumerate(nav_items):
+            btn = NavButton(ico, txt)
             btn.clicked.connect(lambda _, idx=i: self._show_section(idx))
-            sidebar_layout.addWidget(btn)
+            self._sb_lay.addWidget(btn)
             self.nav_buttons.append(btn)
 
-        sidebar_layout.addStretch()
+        self._sb_lay.addStretch()
 
-        # Student mode button
-        student_btn = QPushButton("🖥️  O'quvchi rejimi")
-        student_btn.setStyleSheet(f"""
+        # ── O'quvchi rejimi ───────────────────────────────────────────────────
+        self._student_mode_btn = QPushButton("  🖥️  O'quvchi rejimi")
+        self._student_mode_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {COLORS['accent']};
-                color: white;
-                border-radius: 8px;
-                padding: 10px;
-                font-weight: bold;
+                background: {COLORS['accent']};
+                color: white; border: none; border-radius: 8px;
+                padding: 9px 6px; font-size: 12px; font-weight: bold;
+                text-align: center;
             }}
-            QPushButton:hover {{
-                background-color: {COLORS['accent_light']};
-            }}
+            QPushButton:hover {{ background: {COLORS['accent_light']}; }}
         """)
-        student_btn.clicked.connect(self._open_student_mode)
-        sidebar_layout.addWidget(student_btn)
+        self._student_mode_btn.clicked.connect(self._open_student_mode)
+        self._sb_lay.addWidget(self._student_mode_btn)
+        self._sb_lay.addSpacing(4)
 
-        logout_btn = QPushButton("🚪 Chiqish")
-        logout_btn.setObjectName("secondary")
-        logout_btn.clicked.connect(self._logout)
-        sidebar_layout.addWidget(logout_btn)
+        # ── Chiqish ───────────────────────────────────────────────────────────
+        self._logout_btn = QPushButton("  🚪  Chiqish")
+        self._logout_btn.setObjectName("secondary")
+        self._logout_btn.clicked.connect(self._logout)
+        self._sb_lay.addWidget(self._logout_btn)
 
-        main_layout.addWidget(sidebar)
+        root.addWidget(self.sidebar)
 
-        # ── Content area ──────────────────────────────────────────────────────
-        content_frame = QFrame()
-        content_frame.setStyleSheet(f"background-color: {COLORS['bg_dark']};")
-        content_layout = QVBoxLayout(content_frame)
-        content_layout.setContentsMargins(20, 20, 20, 20)
+        # ── KONTENT ───────────────────────────────────────────────────────────
+        content = QFrame()
+        content.setStyleSheet(f"background: {COLORS['bg_dark']}; border: none;")
+        cl = QVBoxLayout(content)
+        cl.setContentsMargins(20, 20, 20, 20)
+        cl.setSpacing(0)
 
         self.stack = QStackedWidget()
 
-        # Pages
-        from .students_widget import StudentsWidget
-        self.tests_widget     = TestsWidget()
-        self.questions_widget = QuestionsWidget()
-        self.students_widget_tab = StudentsWidget()
-        self.results_widget   = ResultsWidget()
-        self.stats_widget     = StatsWidget()
+        from .students_widget  import StudentsWidget
+        from .tests_widget     import TestsWidget
+        from .questions_widget import QuestionsWidget
+        from .results_widget   import ResultsWidget
+        from .stats_widget     import StatsWidget
 
-        self.stack.addWidget(self.tests_widget)          # 0
-        self.stack.addWidget(self.questions_widget)      # 1
-        self.stack.addWidget(self.students_widget_tab)   # 2
-        self.stack.addWidget(self.results_widget)        # 3
-        self.stack.addWidget(self.stats_widget)          # 4
+        self.stack.addWidget(TestsWidget())          # 0
+        self.stack.addWidget(QuestionsWidget())      # 1
+        self.stack.addWidget(StudentsWidget())       # 2
+        self.stack.addWidget(ResultsWidget())        # 3
+        self.stack.addWidget(StatsWidget())          # 4
 
         if self.is_superadmin:
             from ..superadmin.dashboard import UsersWidget, SettingsWidget, LogsWidget
-            self.users_widget_sa  = UsersWidget()
-            self.settings_widget_sa = SettingsWidget()
-            self.logs_widget_sa   = LogsWidget()
-            self.stack.addWidget(self.users_widget_sa)    # 5
-            self.stack.addWidget(self.settings_widget_sa) # 6
-            self.stack.addWidget(self.logs_widget_sa)     # 7
+            self.stack.addWidget(UsersWidget())      # 5
+            self.stack.addWidget(SettingsWidget())   # 6
+            self.stack.addWidget(LogsWidget())       # 7
 
-        content_layout.addWidget(self.stack)
-        main_layout.addWidget(content_frame)
+        cl.addWidget(self.stack)
+        root.addWidget(content, stretch=1)
+
+        # ── Animatsiya ────────────────────────────────────────────────────────
+        self._anim = QPropertyAnimation(self.sidebar, b"maximumWidth")
+        self._anim.setDuration(ANIM_MS)
+        self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self._anim.finished.connect(self._on_sidebar_anim_done)
+
+        self._anim2 = QPropertyAnimation(self.sidebar, b"minimumWidth")
+        self._anim2.setDuration(ANIM_MS)
+        self._anim2.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+    # ── Sidebar toggle ────────────────────────────────────────────────────────
+
+    def _toggle_sidebar(self):
+        # Animatsiya davomida qayta bosishni e'tiborsiz qoldir
+        if self._anim.state() == QAbstractAnimation.State.Running:
+            return
+
+        self._collapsed = not self._collapsed
+        current = self.sidebar.width()
+        target = SIDEBAR_COLLAPSED if self._collapsed else SIDEBAR_EXPANDED
+
+        # maximumWidth animatsiyasi (kengayish/qisqarish uchun asosiy)
+        self._anim.setStartValue(current)
+        self._anim.setEndValue(target)
+        self._anim.start()
+
+        # minimumWidth animatsiyasi (bir xil tezlikda)
+        self._anim2.setStartValue(current)
+        self._anim2.setEndValue(target)
+        self._anim2.start()
+
+        # UI elementlarini yangilash
+        for btn in self.nav_buttons:
+            btn.set_collapsed(self._collapsed)
+
+        if self._collapsed:
+            self._logo_lbl.setVisible(False)
+            self._user_lbl.setVisible(False)
+            self._student_mode_btn.setText("🖥️")
+            self._student_mode_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: {COLORS['accent']};
+                    color: white; border: none; border-radius: 8px;
+                    padding: 9px 4px; font-size: 16px;
+                    text-align: center;
+                }}
+                QPushButton:hover {{ background: {COLORS['accent_light']}; }}
+            """)
+            self._logout_btn.setText("🚪")
+            self._logout_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: {COLORS['bg_light']};
+                    border: 1px solid {COLORS['border']};
+                    border-radius: 8px;
+                    color: white;
+                    font-size: 16px;
+                    padding: 8px 4px;
+                    text-align: center;
+                    min-height: 0;
+                }}
+                QPushButton:hover {{ background: {COLORS['primary']}; color: white; }}
+            """)
+            self._toggle_btn.setText("▶")
+            self._toggle_btn.setToolTip("Sidebarni ochish")
+        else:
+            self._logo_lbl.setVisible(True)
+            self._user_lbl.setVisible(True)
+            self._student_mode_btn.setText("  🖥️  O'quvchi rejimi")
+            self._student_mode_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: {COLORS['accent']};
+                    color: white; border: none; border-radius: 8px;
+                    padding: 9px 6px; font-size: 12px; font-weight: bold;
+                    text-align: center;
+                }}
+                QPushButton:hover {{ background: {COLORS['accent_light']}; }}
+            """)
+            self._logout_btn.setText("  🚪  Chiqish")
+            self._logout_btn.setObjectName("secondary")
+            self._logout_btn.setStyleSheet("")
+            self._toggle_btn.setText("◀")
+            self._toggle_btn.setToolTip("Sidebarni yig'ish")
+
+    def _on_sidebar_anim_done(self):
+        target = SIDEBAR_COLLAPSED if self._collapsed else SIDEBAR_EXPANDED
+        self.sidebar.setFixedWidth(target)
+
+    # ── Sahifa ko'rsatish ─────────────────────────────────────────────────────
 
     def _show_section(self, index: int):
         self.stack.setCurrentIndex(index)
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
-        # Auto-refresh
-        current = self.stack.currentWidget()
-        if hasattr(current, "refresh"):
-            current.refresh()
+        w = self.stack.currentWidget()
+        if hasattr(w, "refresh"):
+            w.refresh()
+
+    # ── Boshqa amallar ────────────────────────────────────────────────────────
 
     def _open_student_mode(self):
         from ..student.info_window import StudentInfoWindow
-        self._student_win = StudentInfoWindow()
-        self._student_win.show()
+        self._sw = StudentInfoWindow()
+        self._sw.show()
 
     def _logout(self):
-        reply = QMessageBox.question(self, "Chiqish", "Tizimdan chiqmoqchimisiz?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
+        r = QMessageBox.question(
+            self, "Chiqish", "Tizimdan chiqmoqchimisiz?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if r == QMessageBox.StandardButton.Yes:
             api.logout()
             from ...main import restart_to_login
             restart_to_login(self)
