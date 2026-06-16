@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -25,27 +28,22 @@ jobs:
           pip install pyinstaller==6.3.0
           pip install -r requirements.txt
 
+      - name: PyInstaller test
+        working-directory: client
+        run: |
+          python -c "import PyQt6; print('PyQt6 OK')"
+          python -c "import pkgutil; print('pkgutil OK')"
+          pyinstaller --version
+
       - name: O'quvchi panelini yasash
         working-directory: client
         run: |
-          pyinstaller --clean --noconfirm `
-            --collect-all PyQt6 `
-            --hidden-import pkgutil `
-            --hidden-import pkg_resources `
-            --hidden-import importlib.metadata `
-            --hidden-import importlib.resources `
-            student_win.spec
+          pyinstaller --clean --noconfirm --collect-all PyQt6 student_win.spec
 
       - name: O'qituvchi panelini yasash
         working-directory: client
         run: |
-          pyinstaller --clean --noconfirm `
-            --collect-all PyQt6 `
-            --hidden-import pkgutil `
-            --hidden-import pkg_resources `
-            --hidden-import importlib.metadata `
-            --hidden-import importlib.resources `
-            teacher_win.spec
+          pyinstaller --clean --noconfirm --collect-all PyQt6 teacher_win.spec
 
       - name: O'quvchi ZIP arxivi
         run: |
