@@ -1,4 +1,4 @@
-name: Windows .exe yasash
+name: Windows Installer yasash
 
 on:
   push:
@@ -26,36 +26,41 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
+          pip install PyQt6==6.6.1 PyQt6-Qt6==6.6.1 PyQt6-sip==13.6.0
           pip install -r requirements.txt
 
-      - name: O'quvchi panelini yasash
+      - name: O'quvchi .exe yasash
         working-directory: client
         run: pyinstaller --clean --noconfirm student_win.spec
 
-      - name: O'qituvchi panelini yasash
+      - name: O'qituvchi .exe yasash
         working-directory: client
         run: pyinstaller --clean --noconfirm teacher_win.spec
 
-      - name: O'quvchi ZIP arxivi
-        run: |
-          cd client/dist
-          Compress-Archive -Path OquvchiPanel -DestinationPath OquvchiPanel-Windows.zip
+      - name: Installer papkasi yaratish
+        working-directory: client
+        run: New-Item -ItemType Directory -Force -Path installer
 
-      - name: O'qituvchi ZIP arxivi
+      - name: O'quvchi installer yasash (Inno Setup)
+        working-directory: client
         run: |
-          cd client/dist
-          Compress-Archive -Path OqituvchiPanel -DestinationPath OqituvchiPanel-Windows.zip
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" student_setup.iss
 
-      - name: O'quvchi faylini yuklash
+      - name: O'qituvchi installer yasash (Inno Setup)
+        working-directory: client
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" teacher_setup.iss
+
+      - name: O'quvchi Setup.exe yuklash
         uses: actions/upload-artifact@v4
         with:
-          name: OquvchiPanel-Windows
-          path: client/dist/OquvchiPanel-Windows.zip
+          name: OquvchiPanel-Setup
+          path: client/installer/OquvchiPanel-Setup.exe
           retention-days: 30
 
-      - name: O'qituvchi faylini yuklash
+      - name: O'qituvchi Setup.exe yuklash
         uses: actions/upload-artifact@v4
         with:
-          name: OqituvchiPanel-Windows
-          path: client/dist/OqituvchiPanel-Windows.zip
+          name: OqituvchiPanel-Setup
+          path: client/installer/OqituvchiPanel-Setup.exe
           retention-days: 30
