@@ -11,6 +11,10 @@ a = Analysis(
         ('config.json', '.'),
     ],
     hiddenimports=[
+        'pkgutil',
+        'pkg_resources',
+        'importlib.metadata',
+        'importlib.resources',
         'PyQt6.QtCore',
         'PyQt6.QtGui',
         'PyQt6.QtWidgets',

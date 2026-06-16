@@ -3,7 +3,7 @@ name: Windows .exe yasash
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # Qo'lda ham ishga tushirish mumkin
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,22 +16,36 @@ jobs:
       - name: Python 3.11 o'rnatish
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.11.9"
 
       - name: Kutubxonalarni o'rnatish
         working-directory: client
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
           pip install -r requirements.txt
 
       - name: O'quvchi panelini yasash
         working-directory: client
-        run: pyinstaller --clean --noconfirm student_win.spec
+        run: |
+          pyinstaller --clean --noconfirm `
+            --collect-all PyQt6 `
+            --hidden-import pkgutil `
+            --hidden-import pkg_resources `
+            --hidden-import importlib.metadata `
+            --hidden-import importlib.resources `
+            student_win.spec
 
       - name: O'qituvchi panelini yasash
         working-directory: client
-        run: pyinstaller --clean --noconfirm teacher_win.spec
+        run: |
+          pyinstaller --clean --noconfirm `
+            --collect-all PyQt6 `
+            --hidden-import pkgutil `
+            --hidden-import pkg_resources `
+            --hidden-import importlib.metadata `
+            --hidden-import importlib.resources `
+            teacher_win.spec
 
       - name: O'quvchi ZIP arxivi
         run: |
