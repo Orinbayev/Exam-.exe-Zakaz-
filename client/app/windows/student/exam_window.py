@@ -1,500 +1,544 @@
 """
-O'quvchi test oynasi - fullscreen, timer, animatsiyalar, ovoz.
+O'quvchi imtihon oynasi — compact, chiroyli, fullscreen emas.
 """
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QProgressBar, QFrame, QMessageBox, QApplication
+    QPushButton, QProgressBar, QFrame, QMessageBox, QScrollArea,
+    QSizePolicy,
 )
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal, QThread
-from PyQt6.QtGui import QFont, QColor, QKeySequence, QShortcut, QPainter, QLinearGradient
-import random
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QRectF
+from PyQt6.QtGui import QFont, QColor, QPainter, QPen, QBrush, QLinearGradient
 
 
-ANSWER_COLORS = {
-    "A": ("#E53935", "#EF5350"),  # Qizil
-    "B": ("#1565C0", "#1E88E5"),  # Ko'k
-    "C": ("#2E7D32", "#43A047"),  # Yashil
-    "D": ("#E65100", "#FB8C00"),  # To'q sariq
+# ── Konstantalar ──────────────────────────────────────────────────────────────
+
+ANSWER_CFG = {
+    "A": ("#C62828", "#E53935"),
+    "B": ("#1565C0", "#1E88E5"),
+    "C": ("#2E7D32", "#43A047"),
+    "D": ("#E65100", "#FB8C00"),
 }
 
-ANSWER_KEYS = {
+KB = {
     Qt.Key.Key_1: "A", Qt.Key.Key_F1: "A",
     Qt.Key.Key_2: "B", Qt.Key.Key_F2: "B",
     Qt.Key.Key_3: "C", Qt.Key.Key_F3: "C",
     Qt.Key.Key_4: "D", Qt.Key.Key_F4: "D",
 }
 
-MOTIVATIONAL_MESSAGES = [
-    "Qo'lingizdan keladi! 💪",
-    "Davom eting, zo'rsiz! ⭐",
-    "Keyingi savolda yaxshiroq bo'ladi! 🌟",
-    "Bilim - bu kuch! 📚",
-    "Harakat qiling! 🎯",
-    "Vaqtni bekor ketkazmang! ⏰",
-]
+
+# ── Javob tugmasi ─────────────────────────────────────────────────────────────
+
+class ABtn(QPushButton):
+    def __init__(self, letter: str, parent=None):
+        super().__init__(parent)
+        self.letter = letter
+        self._dark, self._light = ANSWER_CFG[letter]
+        self._sel = False
+        self.setFixedHeight(54)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        self._draw()
+
+    def _draw(self):
+        d, lt = self._dark, self._light
+        if self._sel:
+            bg  = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {lt},stop:1 {d})"
+            bdr = "3px solid white"
+        else:
+            bg  = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {d},stop:1 {lt})"
+            bdr = "2px solid rgba(255,255,255,0.12)"
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background: {bg};
+                color: white;
+                border: {bdr};
+                border-radius: 12px;
+                padding-left: 16px;
+                text-align: left;
+            }}
+            QPushButton:hover {{ border: 2px solid rgba(255,255,255,0.65); }}
+        """)
+
+    def set_text(self, txt: str):
+        self.setText(f"  {self.letter}    {txt}")
+
+    def set_sel(self, yes: bool):
+        if self._sel != yes:
+            self._sel = yes
+            self._draw()
 
 
-def play_sound(sound_type: str):
-    """Windows uchun ovoz effekti."""
-    try:
-        import winsound
-        if sound_type == "correct":
-            winsound.Beep(880, 150)  # High beep
-        elif sound_type == "wrong":
-            winsound.Beep(280, 300)  # Low beep
-        elif sound_type == "finish":
-            for freq in [523, 659, 784]:
-                winsound.Beep(freq, 120)
-    except Exception:
-        pass  # Windows bo'lmasa yoki xato bo'lsa o'tkazib yuborish
+# ── Nav dot ───────────────────────────────────────────────────────────────────
 
+class Dot(QPushButton):
+    def __init__(self, num: int, parent=None):
+        super().__init__(str(num), parent)
+        self.setFixedSize(28, 28)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._ans = False
+        self._cur = False
+        self._draw()
+
+    def set_state(self, answered: bool, current: bool):
+        if self._ans != answered or self._cur != current:
+            self._ans = answered
+            self._cur = current
+            self._draw()
+
+    def _draw(self):
+        if self._cur:
+            s = "background:#FF6F00;color:white;border:2px solid #FFD740;border-radius:7px;font-weight:bold;font-size:11px;"
+        elif self._ans:
+            s = "background:#00C853;color:white;border:2px solid #69F0AE;border-radius:7px;font-weight:bold;font-size:11px;"
+        else:
+            s = "background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.40);border:1px solid rgba(255,255,255,0.18);border-radius:7px;font-size:11px;"
+        self.setStyleSheet(f"QPushButton{{{s}}} QPushButton:hover{{background:rgba(255,255,255,0.22);color:white;border:2px solid white;}}")
+
+
+# ── Finish thread ─────────────────────────────────────────────────────────────
 
 class FinishThread(QThread):
-    success = pyqtSignal(dict)
-    error = pyqtSignal(str)
+    ok  = pyqtSignal(dict)
+    err = pyqtSignal(str)
 
-    def __init__(self, session_id: int, answers: dict):
+    def __init__(self, sid: int, answers: dict):
         super().__init__()
-        self.session_id = session_id
+        self.sid     = sid
         self.answers = answers
 
     def run(self):
         from ...api_client import api, APIError
         try:
-            result = api.finish_exam(self.session_id, self.answers)
-            self.success.emit(result)
+            self.ok.emit(api.finish_exam(self.sid, self.answers))
         except APIError as e:
-            self.error.emit(str(e))
+            self.err.emit(str(e))
 
 
-class AnswerButton(QPushButton):
-    def __init__(self, letter: str, text: str, parent=None):
-        super().__init__(parent)
-        self.letter = letter
-        self.answer_text = text
-        self._normal_color, self._hover_color = ANSWER_COLORS[letter]
-        self._selected = False
-        self._correct = None  # None | True | False
-        self._update_style()
-        self.setMinimumHeight(70)
-        self.setFont(QFont("Segoe UI", 14))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._setup_animation()
-
-    def _setup_animation(self):
-        self._anim = QPropertyAnimation(self, b"minimumHeight")
-        self._anim.setDuration(100)
-
-    def _update_style(self):
-        if self._correct is True:
-            bg = "#2E7D32"
-            border = "#66BB6A"
-        elif self._correct is False:
-            bg = "#B71C1C"
-            border = "#EF5350"
-        elif self._selected:
-            bg = self._hover_color
-            border = "white"
-        else:
-            bg = self._normal_color
-            border = "transparent"
-
-        letter_bg = f"rgba(0,0,0,0.3)"
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 {bg}, stop:1 {self._hover_color});
-                color: white;
-                border: 3px solid {border};
-                border-radius: 14px;
-                padding: 10px 20px;
-                font-size: 14px;
-                font-weight: bold;
-                text-align: left;
-            }}
-            QPushButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 {self._hover_color}, stop:1 {self._normal_color});
-                border: 3px solid white;
-            }}
-        """)
-
-    def set_text_and_letter(self):
-        self.setText(f"   {self.letter}   {self.answer_text}")
-
-    def set_selected(self, selected: bool):
-        self._selected = selected
-        self._correct = None
-        self._update_style()
-
-    def set_result(self, is_correct: bool):
-        self._correct = is_correct
-        self._update_style()
-
-    def pulse_animation(self):
-        self._anim.setStartValue(self.minimumHeight())
-        self._anim.setEndValue(self.minimumHeight() + 6)
-        self._anim.setEasingCurve(QEasingCurve.Type.OutBounce)
-        self._anim.start()
-        QTimer.singleShot(150, lambda: self._anim.setEndValue(self.minimumHeight() - 6))
-
+# ── Asosiy oyna ───────────────────────────────────────────────────────────────
 
 class ExamWindow(QMainWindow):
-    def __init__(self, session_data: dict):
+    def __init__(self, session_data: dict, pre_select: dict = None):
         super().__init__()
-        self.session_id = session_data["session_id"]
-        self.test_name = session_data["test_name"]
-        self.time_limit = session_data["time_limit"] * 60  # sekundga aylantirish
-        self.questions = session_data["questions"]
-        self.current_index = 0
-        self.answers = {}  # {str(q_id): answer}
-        self.remaining_time = self.time_limit
-        self._selected_answer = None
-        self._finish_thread = None
-        self._answered = False
+        self.sid         = session_data["session_id"]
+        self.name        = session_data["test_name"]
+        self.qs          = session_data["questions"]
+        self.remaining   = session_data["time_limit"] * 60
+        self.idx         = 0
+        self.answers     = {}
+        self._thread     = None
+        self._pre_select = pre_select or {}
 
-        self._setup_window()
-        self._setup_ui()
-        self._load_question()
+        self._build()
+        self._load()
         self._start_timer()
-        self._block_keys()
 
-    def _setup_window(self):
-        self.setWindowTitle(f"TEST: {self.test_name}")
-        self.setStyleSheet("""
-            QMainWindow, QWidget {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0A1929, stop:0.5 #0D47A1, stop:1 #0A1929);
+    # ── Oyna ──────────────────────────────────────────────────────────────────
+
+    def _build(self):
+        total = len(self.qs)
+
+        # Oyna o'lchami — 960x680, markazda
+        self.setWindowTitle(f"Imtihon: {self.name}")
+        self.resize(960, 680)
+        self.setMinimumSize(780, 560)
+        scr = self.screen().availableGeometry()
+        self.move((scr.width()-960)//2, (scr.height()-680)//2)
+        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
+
+        # Fon
+        root = QWidget()
+        root.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #0D1B2A, stop:0.45 #1A3A6B, stop:1 #0D1B2A);
+                font-family: 'Arial', 'Helvetica', sans-serif;
                 color: white;
-                font-family: 'Segoe UI', Arial;
             }
             QLabel { background: transparent; color: white; }
         """)
-        self.showFullScreen()
+        self.setCentralWidget(root)
 
-    def _block_keys(self):
-        """Fullscreen rejimida tizim tugmalarini bloklash."""
-        # ESC tugmasini bloklash
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint
+        outer = QVBoxLayout(root)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # ══════════════════════════════════════════════════════════════════════
+        # HEADER
+        # ══════════════════════════════════════════════════════════════════════
+        hdr = QWidget()
+        hdr.setFixedHeight(52)
+        hdr.setStyleSheet("background: rgba(0,0,0,0.38);")
+        hdr_lay = QHBoxLayout(hdr)
+        hdr_lay.setContentsMargins(18, 0, 18, 0)
+        hdr_lay.setSpacing(14)
+
+        fan = QLabel(f"📚  {self.name}")
+        fan.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        fan.setStyleSheet("color: rgba(255,255,255,0.90);")
+        hdr_lay.addWidget(fan)
+        hdr_lay.addStretch()
+
+        self._cnt = QLabel(f"1 / {total}")
+        self._cnt.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self._cnt.setFixedWidth(74)
+        self._cnt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._cnt.setStyleSheet(
+            "background:rgba(255,255,255,0.13);border-radius:8px;padding:3px 0;"
         )
-        self.showFullScreen()
+        hdr_lay.addWidget(self._cnt)
 
-    def _setup_ui(self):
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(30, 15, 30, 15)
-        main_layout.setSpacing(12)
+        self._tlbl = QLabel("⏱  00:00")
+        self._tlbl.setFont(QFont("Arial", 15, QFont.Weight.Bold))
+        self._tlbl.setFixedWidth(112)
+        self._tlbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._tlbl.setStyleSheet(
+            "background:rgba(255,255,255,0.13);border-radius:8px;padding:3px 0;color:#FFD740;"
+        )
+        hdr_lay.addWidget(self._tlbl)
+        outer.addWidget(hdr)
 
-        # ── Top Bar ────────────────────────────────────────────────────────────
-        top_bar = QHBoxLayout()
-
-        test_name_label = QLabel(f"📝  {self.test_name}")
-        test_name_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        test_name_label.setStyleSheet("color: rgba(255,255,255,0.9);")
-
-        self.question_counter = QLabel("0 / 0")
-        self.question_counter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-        self.question_counter.setStyleSheet("""
-            background: rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 6px 16px;
-            color: white;
-        """)
-        self.question_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.timer_label = QLabel("⏱  30:00")
-        self.timer_label.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        self.timer_label.setStyleSheet("""
-            background: rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 6px 20px;
-            color: #FFD740;
-        """)
-        self.timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        top_bar.addWidget(test_name_label)
-        top_bar.addStretch()
-        top_bar.addWidget(self.question_counter)
-        top_bar.addSpacing(20)
-        top_bar.addWidget(self.timer_label)
-        main_layout.addLayout(top_bar)
-
-        # ── Progress Bar ───────────────────────────────────────────────────────
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMaximum(len(self.questions))
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(8)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                background: rgba(255,255,255,0.15);
-                border-radius: 4px;
-                border: none;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #FFD740, stop:1 #FF6F00);
-                border-radius: 4px;
+        # PROGRESS
+        self._pbar = QProgressBar()
+        self._pbar.setMaximum(total)
+        self._pbar.setValue(0)
+        self._pbar.setTextVisible(False)
+        self._pbar.setFixedHeight(4)
+        self._pbar.setStyleSheet("""
+            QProgressBar{background:rgba(255,255,255,0.08);border:none;}
+            QProgressBar::chunk{
+                background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #FFD740,stop:1 #FF6F00);
             }
         """)
-        main_layout.addWidget(self.progress_bar)
+        outer.addWidget(self._pbar)
 
-        # ── Question Card ──────────────────────────────────────────────────────
-        question_card = QFrame()
-        question_card.setStyleSheet("""
+        # ══════════════════════════════════════════════════════════════════════
+        # NAV DOTS
+        # ══════════════════════════════════════════════════════════════════════
+        nav_w = QWidget()
+        nav_w.setFixedHeight(44)
+        nav_w.setStyleSheet("background:rgba(255,255,255,0.03);")
+        nav_lay = QHBoxLayout(nav_w)
+        nav_lay.setContentsMargins(16, 7, 16, 7)
+        nav_lay.setSpacing(8)
+
+        n_lbl = QLabel("Savollar:")
+        n_lbl.setFont(QFont("Arial", 9))
+        n_lbl.setStyleSheet("color:rgba(255,255,255,0.40);")
+        nav_lay.addWidget(n_lbl)
+
+        sc = QScrollArea()
+        sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        sc.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        sc.setFrameShape(QFrame.Shape.NoFrame)
+        sc.setStyleSheet("background:transparent;border:none;")
+        sc.setFixedHeight(32)
+
+        inner = QWidget()
+        inner.setStyleSheet("background:transparent;")
+        inner_lay = QHBoxLayout(inner)
+        inner_lay.setContentsMargins(0,0,0,0)
+        inner_lay.setSpacing(4)
+
+        self._dots: list[Dot] = []
+        for i in range(total):
+            d = Dot(i + 1)
+            d.clicked.connect(lambda _, x=i: self._jump(x))
+            inner_lay.addWidget(d)
+            self._dots.append(d)
+        inner_lay.addStretch()
+        sc.setWidget(inner)
+        nav_lay.addWidget(sc, stretch=1)
+
+        self._stat = QLabel("✅ 0  ⬜ 0")
+        self._stat.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self._stat.setStyleSheet("color:rgba(255,255,255,0.55);")
+        nav_lay.addWidget(self._stat)
+        outer.addWidget(nav_w)
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CONTENT — savol + javoblar
+        # ══════════════════════════════════════════════════════════════════════
+        content = QWidget()
+        content.setStyleSheet("background:transparent;")
+        cnt_lay = QVBoxLayout(content)
+        cnt_lay.setContentsMargins(22, 14, 22, 10)
+        cnt_lay.setSpacing(9)
+
+        # Savol karta
+        q_card = QFrame()
+        q_card.setStyleSheet("""
             QFrame {
                 background: rgba(255,255,255,0.08);
-                border-radius: 20px;
-                border: 1px solid rgba(255,255,255,0.15);
+                border: 1.5px solid rgba(255,255,255,0.16);
+                border-radius: 16px;
             }
         """)
-        question_card.setMinimumHeight(130)
+        q_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        qcl = QVBoxLayout(q_card)
+        qcl.setContentsMargins(20, 14, 20, 14)
+        qcl.setSpacing(4)
 
-        q_layout = QVBoxLayout(question_card)
-        q_layout.setContentsMargins(28, 20, 28, 20)
+        self._qnum = QLabel("Savol 1")
+        self._qnum.setFont(QFont("Arial", 9))
+        self._qnum.setStyleSheet("color:rgba(255,255,255,0.38);letter-spacing:1px;")
+        qcl.addWidget(self._qnum)
 
-        q_num_label = QLabel("SAVOL")
-        q_num_label.setFont(QFont("Segoe UI", 10))
-        q_num_label.setStyleSheet("color: rgba(255,255,255,0.5); letter-spacing: 2px;")
-        q_layout.addWidget(q_num_label)
+        self._qtxt = QLabel("")
+        self._qtxt.setFont(QFont("Arial", 14))
+        self._qtxt.setWordWrap(True)
+        self._qtxt.setStyleSheet("color:white;line-height:1.4;")
+        self._qtxt.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        qcl.addWidget(self._qtxt)
 
-        self.question_label = QLabel("Savol matni bu yerda ko'rinadi...")
-        self.question_label.setFont(QFont("Segoe UI", 17))
-        self.question_label.setWordWrap(True)
-        self.question_label.setStyleSheet("color: white; line-height: 1.5;")
-        q_layout.addWidget(self.question_label)
+        cnt_lay.addWidget(q_card)
 
-        main_layout.addWidget(question_card)
+        # Javob tugmalari
+        self._btns: dict[str, ABtn] = {}
+        for letter in ("A","B","C","D"):
+            b = ABtn(letter)
+            b.clicked.connect(lambda _, l=letter: self._select(l))
+            cnt_lay.addWidget(b)
+            self._btns[letter] = b
 
-        # ── Answer Buttons ─────────────────────────────────────────────────────
-        self.answer_buttons = {}
-        answers_layout = QVBoxLayout()
-        answers_layout.setSpacing(10)
+        # Status
+        self._status = QLabel("Javob tanlang yoki keyingi savolga o'ting")
+        self._status.setFont(QFont("Arial", 11))
+        self._status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status.setStyleSheet("color:rgba(255,255,255,0.38);")
+        cnt_lay.addWidget(self._status)
+        cnt_lay.addStretch()
 
-        for i, (letter, label_text) in enumerate([
-            ("A", "Variant A"),
-            ("B", "Variant B"),
-            ("C", "Variant C"),
-            ("D", "Variant D"),
-        ]):
-            btn = AnswerButton(letter, label_text)
-            btn.set_text_and_letter()
-            btn.clicked.connect(lambda _, l=letter: self._select_answer(l))
-            answers_layout.addWidget(btn)
-            self.answer_buttons[letter] = btn
+        outer.addWidget(content, stretch=1)
 
-        main_layout.addLayout(answers_layout)
-        main_layout.addSpacing(8)
-
-        # ── Feedback label ─────────────────────────────────────────────────────
-        self.feedback_label = QLabel("")
-        self.feedback_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        self.feedback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.feedback_label.setMinimumHeight(36)
-        main_layout.addWidget(self.feedback_label)
-
-        # ── Navigation ─────────────────────────────────────────────────────────
-        nav_layout = QHBoxLayout()
-
-        self.prev_btn = QPushButton("← Oldingi")
-        self.prev_btn.setStyleSheet("""
-            QPushButton {
-                background: rgba(255,255,255,0.1);
-                color: white;
-                border: 2px solid rgba(255,255,255,0.3);
-                border-radius: 12px;
-                padding: 12px 24px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 130px;
-            }
-            QPushButton:hover { background: rgba(255,255,255,0.2); }
-            QPushButton:disabled { opacity: 0.4; }
-        """)
-        self.prev_btn.clicked.connect(self._prev_question)
-
-        self.answer_info = QLabel("Javob berish: 1 2 3 4  yoki  F1 F2 F3 F4")
-        self.answer_info.setStyleSheet("color: rgba(255,255,255,0.55); font-size: 12px;")
-        self.answer_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.next_btn = QPushButton("Keyingi →")
-        self.next_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #FF6F00, stop:1 #FFA000);
-                color: white;
-                border: none;
-                border-radius: 12px;
-                padding: 12px 24px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 130px;
-            }
-            QPushButton:hover { background: #FFB300; }
-        """)
-        self.next_btn.clicked.connect(self._next_question)
-
-        nav_layout.addWidget(self.prev_btn)
-        nav_layout.addStretch()
-        nav_layout.addWidget(self.answer_info)
-        nav_layout.addStretch()
-        nav_layout.addWidget(self.next_btn)
-        main_layout.addLayout(nav_layout)
-
-        # Keyboard hints
-        keys_label = QLabel("[1][2][3][4] — javob     [→] — keyingi     [←] — oldingi")
-        keys_label.setStyleSheet("color: rgba(255,255,255,0.4); font-size: 11px;")
-        keys_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(keys_label)
-
-    def _load_question(self):
-        if not self.questions:
-            return
-
-        total = len(self.questions)
-        idx = self.current_index
-        q = self.questions[idx]
-
-        self.question_counter.setText(f"{idx + 1} / {total}")
-        self.progress_bar.setValue(idx + 1)
-        self.question_label.setText(q["text"])
-        self.feedback_label.setText("")
-        self._selected_answer = self.answers.get(str(q["id"]))
-        self._answered = self._selected_answer is not None
-
-        # Javob tugmalarini yangilash
-        for letter, btn in self.answer_buttons.items():
-            text = q[f"option_{letter.lower()}"]
-            btn.answer_text = text
-            btn.set_text_and_letter()
-            btn._correct = None
-            btn.set_selected(letter == self._selected_answer)
-
-        self.prev_btn.setEnabled(idx > 0)
-        is_last = (idx == total - 1)
-        if is_last:
-            self.next_btn.setText("✅  Testni Yakunlash")
-        else:
-            self.next_btn.setText("Keyingi →")
-
-    def _select_answer(self, letter: str):
-        if not self.questions:
-            return
-        q = self.questions[self.current_index]
-        self._selected_answer = letter
-        self.answers[str(q["id"])] = letter
-
-        for l, btn in self.answer_buttons.items():
-            btn.set_selected(l == letter)
-            if l == letter:
-                btn.pulse_animation()
-
-        # Ovoz effekti (agar javob tezda tekshirilmasa shunchaki click sound)
-        play_sound("correct")
-
-        # Bir soniyadan keyin keyingiga o'tish
-        if self.current_index < len(self.questions) - 1:
-            QTimer.singleShot(600, self._next_question)
-
-    def _next_question(self):
-        if self.current_index < len(self.questions) - 1:
-            self.current_index += 1
-            self._load_question()
-        else:
-            self._finish_exam()
-
-    def _prev_question(self):
-        if self.current_index > 0:
-            self.current_index -= 1
-            self._load_question()
-
-    def _start_timer(self):
-        self.timer = QTimer()
-        self.timer.timeout.connect(self._tick)
-        self.timer.start(1000)
-
-    def _tick(self):
-        self.remaining_time -= 1
-        mins = self.remaining_time // 60
-        secs = self.remaining_time % 60
-        self.timer_label.setText(f"⏱  {mins:02d}:{secs:02d}")
-
-        if self.remaining_time <= 60:
-            self.timer_label.setStyleSheet("""
-                background: rgba(180,0,0,0.5);
-                border-radius: 12px;
-                padding: 6px 20px;
-                color: #FF5252;
-                font-weight: bold;
-            """)
-        if self.remaining_time <= 0:
-            self.timer.stop()
-            self._finish_exam(timeout=True)
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        if key in ANSWER_KEYS:
-            self._select_answer(ANSWER_KEYS[key])
-        elif key in (Qt.Key.Key_Right, Qt.Key.Key_Return, Qt.Key.Key_Space):
-            self._next_question()
-        elif key == Qt.Key.Key_Left:
-            self._prev_question()
-        elif key == Qt.Key.Key_Escape:
-            self._confirm_exit()
-        else:
-            super().keyPressEvent(event)
-
-    def _confirm_exit(self):
-        reply = QMessageBox.question(
-            self, "Testdan chiqish",
-            "Testdan chiqmoqchimisiz?\nBarcha javoblaringiz yo'qoladi!",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        # ══════════════════════════════════════════════════════════════════════
+        # PASTKI NAVIGATSIYA — DOIM KO'RINADI
+        # ══════════════════════════════════════════════════════════════════════
+        bot = QWidget()
+        bot.setFixedHeight(62)
+        bot.setStyleSheet(
+            "background:rgba(0,0,0,0.42);"
+            "border-top:1px solid rgba(255,255,255,0.09);"
         )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.timer.stop()
-            self.close()
-            from ..student.info_window import StudentInfoWindow
-            self._info_win = StudentInfoWindow()
-            self._info_win.show()
+        bot_lay = QHBoxLayout(bot)
+        bot_lay.setContentsMargins(22, 8, 22, 8)
+        bot_lay.setSpacing(12)
 
-    def _finish_exam(self, timeout: bool = False):
-        self.timer.stop()
+        self._prev = QPushButton("◀   Oldingi")
+        self._prev.setFixedSize(140, 44)
+        self._prev.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        self._prev.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._prev.setStyleSheet("""
+            QPushButton{background:rgba(255,255,255,0.09);color:white;
+                border:2px solid rgba(255,255,255,0.22);border-radius:10px;}
+            QPushButton:hover{background:rgba(255,255,255,0.18);border-color:white;}
+            QPushButton:disabled{color:rgba(255,255,255,0.18);
+                border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);}
+        """)
+        self._prev.clicked.connect(self._go_prev)
 
-        if timeout:
-            QMessageBox.information(self, "Vaqt tugadi", "⏰ Vaqt tugadi! Natijalar hisoblanmoqda...")
+        hint = QLabel("[1-4] javob  ·  [←→] o'tish  ·  [Esc] chiqish")
+        hint.setFont(QFont("Arial", 10))
+        hint.setStyleSheet("color:rgba(255,255,255,0.28);")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._next = QPushButton("Keyingi   ▶")
+        self._next.setFixedSize(170, 44)
+        self._next.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        self._next.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._next.setStyleSheet(self._next_style(last=False))
+        self._next.clicked.connect(self._go_next)
+
+        bot_lay.addWidget(self._prev)
+        bot_lay.addStretch()
+        bot_lay.addWidget(hint)
+        bot_lay.addStretch()
+        bot_lay.addWidget(self._next)
+        outer.addWidget(bot)
+
+    def _next_style(self, last: bool) -> str:
+        if last:
+            return """QPushButton{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #1B5E20,stop:1 #2E7D32);
+                color:white;border:2px solid #69F0AE;border-radius:10px;}
+                QPushButton:hover{background:#388E3C;}
+                QPushButton:disabled{background:rgba(255,255,255,0.10);border-color:transparent;}"""
+        return """QPushButton{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 #E65100,stop:1 #FF8F00);
+            color:white;border:none;border-radius:10px;}
+            QPushButton:hover{background:#FF6F00;}
+            QPushButton:disabled{background:rgba(255,255,255,0.10);}"""
+
+    # ── Savol yuklash ─────────────────────────────────────────────────────────
+
+    def _load(self):
+        total = len(self.qs)
+        q     = self.qs[self.idx]
+        qid   = str(q["id"])
+        sel   = self.answers.get(qid)
+
+        self._cnt.setText(f"{self.idx+1} / {total}")
+        self._pbar.setValue(self.idx+1)
+        self._qnum.setText(f"Savol  {self.idx+1}  /  {total}")
+        self._qtxt.setText(q["text"])
+
+        for l, b in self._btns.items():
+            b.set_text(q.get(f"option_{l.lower()}", ""))
+            b.set_sel(l == sel)
 
         answered = len(self.answers)
-        total = len(self.questions)
-        if answered < total and not timeout:
-            unanswered = total - answered
-            reply = QMessageBox.question(
-                self, "Yakunlash",
-                f"Hali {unanswered} ta savol javobsiz qoldi.\nTestni yakunlashni tasdiqlaysizmi?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        self._stat.setText(f"✅ {answered}  ⬜ {total-answered}")
+        for i, d in enumerate(self._dots):
+            d.set_state(
+                answered=str(self.qs[i]["id"]) in self.answers,
+                current=(i == self.idx),
             )
-            if reply == QMessageBox.StandardButton.No:
-                self.timer.start(1000)
+
+        is_last = (self.idx == total - 1)
+        self._prev.setEnabled(self.idx > 0)
+        self._next.setText("✅   Yakunlash" if is_last else "Keyingi   ▶")
+        self._next.setStyleSheet(self._next_style(last=is_last))
+        self._next.setEnabled(True)
+
+        if sel:
+            self._status.setText(f"✅   {sel} variantini tanladingiz — davom eting")
+            self._status.setStyleSheet("color:#69F0AE;")
+        else:
+            self._status.setText("Javob tanlang  ·  yoki «Keyingi» ni bosib o'tkazib yuboring")
+            self._status.setStyleSheet("color:rgba(255,255,255,0.38);")
+
+    # ── Javob ─────────────────────────────────────────────────────────────────
+
+    def _select(self, letter: str):
+        qid = str(self.qs[self.idx]["id"])
+        self.answers[qid] = letter
+        for l, b in self._btns.items():
+            b.set_sel(l == letter)
+        try:
+            from ...sound_player import play
+            play("click", volume=0.60)
+        except Exception:
+            pass
+        self._load()
+
+    # ── Navigatsiya ───────────────────────────────────────────────────────────
+
+    def _go_next(self):
+        if self.idx < len(self.qs) - 1:
+            self.idx += 1
+            self._load()
+        else:
+            self._try_finish()
+
+    def _go_prev(self):
+        if self.idx > 0:
+            self.idx -= 1
+            self._load()
+
+    def _jump(self, i: int):
+        self.idx = i
+        self._load()
+
+    # ── Timer ─────────────────────────────────────────────────────────────────
+
+    def _start_timer(self):
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(1000)
+
+    def _tick(self):
+        self.remaining -= 1
+        m, s = divmod(self.remaining, 60)
+        self._tlbl.setText(f"⏱  {m:02d}:{s:02d}")
+        if self.remaining <= 60:
+            self._tlbl.setStyleSheet(
+                "background:rgba(180,0,0,0.40);border-radius:8px;"
+                "padding:3px 0;color:#FF5252;font-weight:bold;"
+            )
+        if self.remaining <= 0:
+            self._timer.stop()
+            self._finish(timeout=True)
+
+    # ── Klaviatura ────────────────────────────────────────────────────────────
+
+    def keyPressEvent(self, e):
+        k = e.key()
+        if k in KB:
+            self._select(KB[k])
+        elif k in (Qt.Key.Key_Right, Qt.Key.Key_Space):
+            self._go_next()
+        elif k == Qt.Key.Key_Left:
+            self._go_prev()
+        elif k == Qt.Key.Key_Escape:
+            self._exit()
+        else:
+            super().keyPressEvent(e)
+
+    def _exit(self):
+        r = QMessageBox.question(
+            self, "Imtihondan chiqish",
+            "⚠️  Imtihondan chiqmoqchimisiz?\nJavoblaringiz yo'qoladi!",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if r == QMessageBox.StandardButton.Yes:
+            self._timer.stop()
+            self.close()
+            from ..student.info_window import StudentInfoWindow
+            self._info = StudentInfoWindow()
+            self._info.show()
+
+    # ── Yakunlash ─────────────────────────────────────────────────────────────
+
+    def _try_finish(self):
+        unanswered = [
+            str(i+1)
+            for i, q in enumerate(self.qs)
+            if str(q["id"]) not in self.answers
+        ]
+        if unanswered:
+            nums = ", ".join(unanswered[:15])
+            if len(unanswered) > 15:
+                nums += " ..."
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("⚠️  Javobsiz savollar!")
+            dlg.setText(
+                f"<b>{len(unanswered)} ta savolga javob bermadingiz.</b><br><br>"
+                f"Javobsiz raqamlar: <b>{nums}</b><br><br>"
+                "Shunga qaramay yakunlashni tasdiqlaysizmi?"
+            )
+            dlg.setIcon(QMessageBox.Icon.Warning)
+            yes = dlg.addButton("✅  Ha, yakunlayman",   QMessageBox.ButtonRole.YesRole)
+            dlg.addButton("↩  Qaytib javob beraman", QMessageBox.ButtonRole.NoRole)
+            dlg.exec()
+            if dlg.clickedButton() != yes:
                 return
 
-        self.next_btn.setEnabled(False)
-        self.next_btn.setText("⏳ Yuklanmoqda...")
+        self._finish()
 
-        self._finish_thread = FinishThread(self.session_id, self.answers)
-        self._finish_thread.success.connect(self._on_finished)
-        self._finish_thread.error.connect(self._on_finish_error)
-        self._finish_thread.start()
+    def _finish(self, timeout: bool = False):
+        self._timer.stop()
+        if timeout:
+            QMessageBox.information(
+                self, "⏰ Vaqt tugadi",
+                "Imtihon vaqti tugadi!\nNatijalar hisoblanmoqda...",
+            )
+        self._next.setEnabled(False)
+        self._next.setText("⏳  Yuklanmoqda...")
 
-    def _on_finished(self, result: dict):
-        play_sound("finish")
+        self._thread = FinishThread(self.sid, self.answers)
+        self._thread.ok.connect(self._done)
+        self._thread.err.connect(self._fail)
+        self._thread.start()
+
+    def _done(self, result: dict):
         from .result_window import ResultWindow
-        self._result_win = ResultWindow(result)
-        self._result_win.show()
+        self._rw = ResultWindow(result, pre_select=self._pre_select)
+        self._rw.show()
         self.close()
 
-    def _on_finish_error(self, msg: str):
-        self.next_btn.setEnabled(True)
-        self.next_btn.setText("✅  Yakunlash")
+    def _fail(self, msg: str):
+        is_last = (self.idx == len(self.qs) - 1)
+        self._next.setEnabled(True)
+        self._next.setText("✅   Yakunlash" if is_last else "Keyingi   ▶")
+        self._next.setStyleSheet(self._next_style(last=is_last))
         QMessageBox.critical(self, "Xato", f"Natijalar yuborishda xato:\n{msg}")

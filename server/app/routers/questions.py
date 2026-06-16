@@ -13,14 +13,22 @@ router = APIRouter(prefix="/api/questions", tags=["questions"])
 
 # ── Categories ────────────────────────────────────────────────────────────────
 
-@router.get("/categories", response_model=List[CategoryOut])
+@router.get("/categories")
 def list_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
     if current_user.role == "superadmin":
-        return db.query(Category).all()
-    return db.query(Category).filter(Category.teacher_id == current_user.id).all()
+        cats = db.query(Category).all()
+    else:
+        cats = db.query(Category).filter(Category.teacher_id == current_user.id).all()
+    return [{
+        "id": c.id,
+        "name": c.name,
+        "teacher_id": c.teacher_id,
+        "time_limit": getattr(c, "time_limit", 30),
+        "question_count": db.query(Question).filter(Question.category_id == c.id).count(),
+    } for c in cats]
 
 
 @router.post("/categories", response_model=CategoryOut)
@@ -134,6 +142,78 @@ def delete_question(
     db.delete(question)
     db.commit()
     return {"message": "Savol o'chirildi"}
+
+
+@router.patch("/{question_id}/toggle-active")
+def toggle_question_active(
+    question_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    """Savolni muzlatish / faollashtirish."""
+    q = db.query(Question).filter(Question.id == question_id)
+    if current_user.role != "superadmin":
+        q = q.filter(Question.teacher_id == current_user.id)
+    question = q.first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Savol topilmadi")
+    question.is_active = not bool(question.is_active)
+    db.commit()
+    return {"id": question.id, "is_active": bool(question.is_active)}
+
+
+@router.patch("/categories/{category_id}/time-limit")
+def update_category_time_limit(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    """Fan imtihon vaqtini yangilash (body: JSON {time_limit: N})."""
+    from fastapi import Request
+    cat = db.query(Category).filter(Category.id == category_id)
+    if current_user.role != "superadmin":
+        cat = cat.filter(Category.teacher_id == current_user.id)
+    category = cat.first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Fan topilmadi")
+    return {"id": category.id, "name": category.name,
+            "time_limit": getattr(category, "time_limit", 30)}
+
+
+@router.put("/categories/{category_id}/time-limit")
+def set_category_time_limit(
+    category_id: int,
+    time_limit: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    """Fan imtihon vaqtini saqlash — query param: ?time_limit=45"""
+    cat = db.query(Category).filter(Category.id == category_id)
+    if current_user.role != "superadmin":
+        cat = cat.filter(Category.teacher_id == current_user.id)
+    category = cat.first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Fan topilmadi")
+    category.time_limit = time_limit
+    db.commit()
+    return {"id": category.id, "name": category.name, "time_limit": category.time_limit}
+
+
+@router.delete("/categories/{category_id}")
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    cat = db.query(Category).filter(Category.id == category_id)
+    if current_user.role != "superadmin":
+        cat = cat.filter(Category.teacher_id == current_user.id)
+    category = cat.first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Fan topilmadi")
+    db.delete(category)
+    db.commit()
+    return {"message": "Fan o'chirildi"}
 
 
 @router.post("/import/excel")

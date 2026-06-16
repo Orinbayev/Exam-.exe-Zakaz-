@@ -26,7 +26,7 @@ def main():
 
     from app.windows.student.info_window import StudentInfoWindow
     window = StudentInfoWindow()
-    window.show()
+    # showMaximized() is called inside __init__
 
     sys.exit(app.exec())
 

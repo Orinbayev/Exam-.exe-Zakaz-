@@ -1,78 +1,114 @@
 """
-O'quvchi — test boshlash oynasi.
+O'quvchi — test boshlash oynasi (full-screen kiosk).
 Sinf tanlash → ism tanlash → test tanlash → boshlash.
 """
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QComboBox, QPushButton, QFrame, QSizePolicy
+    QComboBox, QPushButton, QFrame, QGraphicsDropShadowEffect,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QGuiApplication
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRectF
+from PyQt6.QtGui import (
+    QFont, QColor, QPainter, QLinearGradient, QRadialGradient, QBrush, QPen,
+)
 from ...api_client import api, APIError
 
 
-# ── Ranglar ───────────────────────────────────────────────────────────────────
+# ── Chiroyli gradient fon ─────────────────────────────────────────────────────
 
-BG1, BG2 = "#0D47A1", "#1976D2"
-CARD_BG   = "rgba(255,255,255,0.10)"
-CARD_BDR  = "rgba(255,255,255,0.20)"
-INPUT_BG  = "rgba(255,255,255,0.12)"
-INPUT_FOCUS = "rgba(255,255,255,0.20)"
-BTN_BG    = "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #FF6F00,stop:1 #FFA000)"
-BTN_HV    = "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #FFA000,stop:1 #FFD740)"
+class _BgWidget(QWidget):
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
 
-COMBO_STYLE = f"""
-QComboBox {{
-    background: {INPUT_BG};
+        # Asosiy gradient
+        g = QLinearGradient(0, 0, w, h)
+        g.setColorAt(0.00, QColor("#061236"))
+        g.setColorAt(0.40, QColor("#0D2B6E"))
+        g.setColorAt(0.70, QColor("#1148A0"))
+        g.setColorAt(1.00, QColor("#061A50"))
+        p.fillRect(self.rect(), QBrush(g))
+
+        # Glow doiralari
+        def _glow(cx, cy, r, col, alpha=55):
+            rg = QRadialGradient(cx, cy, r)
+            c1 = QColor(col); c1.setAlpha(alpha)
+            c2 = QColor(col); c2.setAlpha(0)
+            rg.setColorAt(0, c1); rg.setColorAt(1, c2)
+            p.setBrush(QBrush(rg)); p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(int(cx-r), int(cy-r), int(r*2), int(r*2))
+
+        _glow(w * 0.12, h * 0.15, 260, "#1E88E5", 60)
+        _glow(w * 0.88, h * 0.85, 300, "#0D47A1", 55)
+        _glow(w * 0.80, h * 0.10, 180, "#42A5F5", 35)
+        _glow(w * 0.20, h * 0.88, 220, "#1565C0", 40)
+        _glow(w * 0.50, h * 0.50, 350, "#1A3A8A", 25)
+
+        # Nuqtali panjara
+        p.setPen(QPen(QColor(255, 255, 255, 7), 1))
+        for x in range(0, w, 36):
+            for y in range(0, h, 36):
+                p.drawPoint(x, y)
+        p.end()
+
+
+# ── Stil konstantalar ─────────────────────────────────────────────────────────
+
+COMBO_STYLE = """
+QComboBox {
+    background: rgba(255,255,255,0.10);
     color: white;
     border: 1.5px solid rgba(255,255,255,0.22);
-    border-radius: 12px;
-    padding: 0 16px;
-    font-size: 14px;
+    border-radius: 14px;
+    padding: 0 18px;
+    font-size: 15px;
     font-family: 'Segoe UI', Arial;
-    min-height: 52px;
-}}
-QComboBox:focus {{
-    background: {INPUT_FOCUS};
+    min-height: 54px;
+}
+QComboBox:focus {
+    background: rgba(255,255,255,0.16);
     border: 2px solid rgba(255,255,255,0.60);
-}}
-QComboBox::drop-down {{
-    border: none;
-    width: 32px;
-}}
-QComboBox::down-arrow {{
+}
+QComboBox::drop-down { border: none; width: 34px; }
+QComboBox::down-arrow {
     image: none;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
     border-top: 7px solid rgba(255,255,255,0.75);
-    margin-right: 12px;
-}}
-QComboBox QAbstractItemView {{
+    margin-right: 14px;
+}
+QComboBox QAbstractItemView {
     background: #1565C0;
     color: white;
     selection-background-color: #0D47A1;
     border: none;
-    font-size: 13px;
-    padding: 4px;
-}}
+    font-size: 14px;
+    padding: 6px;
+}
 """
 
-START_STYLE = f"""
-QPushButton {{
-    background: {BTN_BG};
+START_STYLE = """
+QPushButton {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+        stop:0 #FF6F00, stop:1 #FFA000);
     color: white;
     border: none;
-    border-radius: 14px;
-    font-size: 17px;
+    border-radius: 16px;
+    font-size: 18px;
     font-weight: 700;
     font-family: 'Segoe UI', Arial;
-    min-height: 58px;
-}}
-QPushButton:hover  {{ background: {BTN_HV}; }}
-QPushButton:disabled {{
+    min-height: 62px;
+    letter-spacing: 0.5px;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+        stop:0 #FFA000, stop:1 #FFD740);
+}
+QPushButton:pressed  { background: #E65100; }
+QPushButton:disabled {
     background: rgba(255,255,255,0.15);
     color: rgba(255,255,255,0.40);
-}}
+}
 """
 
 
@@ -90,8 +126,7 @@ class _StartThread(QThread):
 
     def run(self):
         try:
-            r = api.start_exam(self._tid, self._first, self._last, self._cls)
-            self.done.emit(r)
+            self.done.emit(api.start_exam(self._tid, self._first, self._last, self._cls))
         except APIError as e:
             self.error.emit(str(e))
 
@@ -99,136 +134,143 @@ class _StartThread(QThread):
 # ── Asosiy oyna ──────────────────────────────────────────────────────────────
 
 class StudentInfoWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, pre_select: dict = None):
         super().__init__()
         self.setWindowTitle("Smart Exam — Test Boshlash")
-        self.setFixedSize(500, 660)
-        self._thread = None
-        self._classes: list = []
+        self._thread    = None
+        self._classes:  list = []
         self._students: list = []
-        self._tests: list = []
+        self._tests:    list = []
+        self._pre_select  = pre_select or {}
+        self._last_select: dict = {}
         self._build_ui()
-        self._center()
+        self.showMaximized()      # ← butun ekranni to'ldiradi
         self._load_initial()
 
-    def _center(self):
-        sc = QGuiApplication.primaryScreen().geometry()
-        self.move(
-            (sc.width()  - self.width())  // 2,
-            (sc.height() - self.height()) // 2,
-        )
-
-    # ── UI ────────────────────────────────────────────────────────────────────
+    # ── UI qurilishi ──────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # Gradient fon
-        root_w = QWidget()
-        root_w.setStyleSheet(f"""
-            QWidget {{
-                background: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {BG1}, stop:1 {BG2}
-                );
-            }}
-        """)
-        self.setCentralWidget(root_w)
+        bg = _BgWidget()
+        self.setCentralWidget(bg)
 
-        outer = QVBoxLayout(root_w)
-        outer.setContentsMargins(32, 36, 32, 28)
+        # To'liq ekran layout — karta markazida
+        outer = QVBoxLayout(bg)
+        outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
+        outer.addStretch(1)
 
-        # ── Header ───────────────────────────────────────────────────────────
-        ico = QLabel("📝")
-        ico.setFont(QFont("Segoe UI Emoji", 42))
+        # Gorizontal markazlash
+        h_row = QHBoxLayout()
+        h_row.setContentsMargins(0, 0, 0, 0)
+        h_row.addStretch(1)
+
+        # Karta konteyner (max 540px kenglik)
+        panel = QWidget()
+        panel.setFixedWidth(540)
+        panel.setStyleSheet("background: transparent;")
+        panel_lay = QVBoxLayout(panel)
+        panel_lay.setContentsMargins(0, 0, 0, 0)
+        panel_lay.setSpacing(0)
+
+        # ── Logo + sarlavha ───────────────────────────────────────────────────
+        ico = QLabel("🎓")
+        ico.setFont(QFont("Segoe UI Emoji", 50))
         ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ico.setStyleSheet("background: transparent;")
-        outer.addWidget(ico)
+        ico.setStyleSheet("background: transparent; color: white;")
+        panel_lay.addWidget(ico)
+        panel_lay.addSpacing(8)
 
         ttl = QLabel("Test Boshlash")
-        ttl.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        ttl.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
         ttl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ttl.setStyleSheet("color: white; background: transparent;")
-        outer.addWidget(ttl)
-        outer.addSpacing(6)
+        panel_lay.addWidget(ttl)
+        panel_lay.addSpacing(4)
 
         sub = QLabel("Quyidagi ma'lumotlarni to'ldiring")
-        sub.setFont(QFont("Segoe UI", 11))
+        sub.setFont(QFont("Segoe UI", 12))
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sub.setStyleSheet("color: rgba(255,255,255,0.60); background: transparent;")
-        outer.addWidget(sub)
-        outer.addSpacing(24)
+        sub.setStyleSheet("color: rgba(255,255,255,0.55); background: transparent;")
+        panel_lay.addWidget(sub)
+        panel_lay.addSpacing(28)
 
-        # ── Card ─────────────────────────────────────────────────────────────
+        # ── Karta ─────────────────────────────────────────────────────────────
         card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
-                background: {CARD_BG};
-                border: 1.5px solid {CARD_BDR};
-                border-radius: 22px;
-            }}
+        card.setObjectName("MainCard")
+        card.setStyleSheet("""
+            QFrame#MainCard {
+                background: rgba(255,255,255,0.08);
+                border: 1.5px solid rgba(255,255,255,0.18);
+                border-radius: 24px;
+            }
         """)
-        cl = QVBoxLayout(card)
-        cl.setContentsMargins(26, 26, 26, 26)
-        cl.setSpacing(18)
+        sh = QGraphicsDropShadowEffect()
+        sh.setBlurRadius(60)
+        sh.setColor(QColor(0, 0, 0, 120))
+        sh.setOffset(0, 16)
+        card.setGraphicsEffect(sh)
 
-        # 1) Sinf tanlang
-        cl.addLayout(self._label_row("🏫", "Sinf tanlang"))
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(30, 30, 30, 30)
+        cl.setSpacing(16)
+
+        # 1) Sinf
+        cl.addLayout(_label_row("🏫", "Sinf tanlang"))
         self._cls_combo = QComboBox()
         self._cls_combo.setStyleSheet(COMBO_STYLE)
         self._cls_combo.addItem("⏳  Yuklanmoqda...", None)
         self._cls_combo.currentIndexChanged.connect(self._on_class_change)
         cl.addWidget(self._cls_combo)
 
-        # 2) O'quvchini tanlang
-        cl.addLayout(self._label_row("👤", "O'quvchini tanlang"))
+        # 2) O'quvchi
+        cl.addLayout(_label_row("👤", "O'quvchini tanlang"))
         self._stu_combo = QComboBox()
         self._stu_combo.setStyleSheet(COMBO_STYLE)
         self._stu_combo.addItem("— Avval sinfni tanlang —", None)
         cl.addWidget(self._stu_combo)
 
-        # 3) Test tanlang
-        cl.addLayout(self._label_row("📋", "Test tanlang"))
+        # 3) Fan / test
+        cl.addLayout(_label_row("📋", "Fan / Test tanlang"))
         self._tst_combo = QComboBox()
         self._tst_combo.setStyleSheet(COMBO_STYLE)
-        self._tst_combo.addItem("⏳  Yuklanmoqda...", None)
+        self._tst_combo.addItem("— Avval sinfni tanlang —", None)
         cl.addWidget(self._tst_combo)
 
         # Xato banner
         self._err_lbl = QLabel("")
         self._err_lbl.setStyleSheet(
-            "color: #FF8A65; font-size: 12px;"
-            " background: rgba(239,83,80,0.12);"
-            " border: 1px solid rgba(239,83,80,0.30);"
-            " border-radius: 8px; padding: 8px 12px;"
+            "color:#FF8A65; font-size:13px;"
+            " background:rgba(239,83,80,0.14);"
+            " border:1px solid rgba(239,83,80,0.35);"
+            " border-radius:10px; padding:10px 14px;"
         )
         self._err_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._err_lbl.setWordWrap(True)
         self._err_lbl.hide()
         cl.addWidget(self._err_lbl)
 
-        outer.addWidget(card, stretch=1)
-        outer.addSpacing(20)
+        panel_lay.addWidget(card)
+        panel_lay.addSpacing(20)
 
-        # ── Start button ─────────────────────────────────────────────────────
+        # ── Boshlash tugmasi ──────────────────────────────────────────────────
         self._start_btn = QPushButton("🚀   Testni Boshlash")
         self._start_btn.setStyleSheet(START_STYLE)
+        self._start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._start_btn.clicked.connect(self._start)
-        outer.addWidget(self._start_btn)
+        panel_lay.addWidget(self._start_btn)
 
-    @staticmethod
-    def _label_row(icon: str, text: str) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        ico = QLabel(icon)
-        ico.setFont(QFont("Segoe UI Emoji", 13))
-        ico.setStyleSheet("background: transparent; color: white;")
-        lbl = QLabel(text)
-        lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
-        lbl.setStyleSheet("color: rgba(255,255,255,0.80); background: transparent;")
-        row.addWidget(ico)
-        row.addWidget(lbl)
-        row.addStretch()
-        return row
+        # Footer
+        panel_lay.addSpacing(14)
+        footer = QLabel("Smart Exam System  •  v1.0")
+        footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footer.setFont(QFont("Segoe UI", 9))
+        footer.setStyleSheet("color: rgba(255,255,255,0.20); background: transparent;")
+        panel_lay.addWidget(footer)
+
+        h_row.addWidget(panel)
+        h_row.addStretch(1)
+        outer.addLayout(h_row)
+        outer.addStretch(1)
 
     # ── Data loading ──────────────────────────────────────────────────────────
 
@@ -246,6 +288,14 @@ class StudentInfoWindow(QMainWindow):
                 self._cls_combo.addItem("— Sinfni tanlang —", None)
                 for c in self._classes:
                     self._cls_combo.addItem(f"  {c['name']}", c["id"])
+
+            # Oldingi tanlov qayta tiklash
+            pre_cls = self._pre_select.get("cls_id")
+            if pre_cls:
+                for i in range(self._cls_combo.count()):
+                    if self._cls_combo.itemData(i) == pre_cls:
+                        self._cls_combo.setCurrentIndex(i)
+                        break
         except APIError as e:
             self._cls_combo.clear()
             self._cls_combo.addItem("— Serverga ulanib bo'lmadi —", None)
@@ -256,7 +306,7 @@ class StudentInfoWindow(QMainWindow):
         self._stu_combo.clear()
         self._tst_combo.clear()
         self._students = []
-        self._tests = []
+        self._tests    = []
 
         if cls_id is None:
             self._stu_combo.addItem("— Avval sinfni tanlang —", None)
@@ -264,7 +314,6 @@ class StudentInfoWindow(QMainWindow):
             self._start_btn.setEnabled(False)
             return
 
-        # Load students
         try:
             self._students = api.get_students_public(cls_id)
             if not self._students:
@@ -276,32 +325,45 @@ class StudentInfoWindow(QMainWindow):
         except APIError:
             self._stu_combo.addItem("— Yuklanmadi —", None)
 
-        # Load tests for this class
         try:
-            self._tests = api.get_class_tests_public(cls_id)
+            self._tests = api.get_class_fans(cls_id)
             if not self._tests:
-                self._tst_combo.addItem("— Bu sinfga test biriktirilmagan —", None)
+                self._tst_combo.addItem("— Bu sinfga fan biriktirilmagan —", None)
                 self._start_btn.setEnabled(False)
             else:
                 self._start_btn.setEnabled(True)
-                for t in self._tests:
-                    q = t.get("question_count", 0)
-                    self._tst_combo.addItem(f"{t['name']}  ({q} savol · {t['time_limit']} daq)", t["id"])
+                for f in self._tests:
+                    self._tst_combo.addItem(
+                        f"📚  {f['fan_name']}  ·  ⏱ {f.get('time_limit', 30)} daqiqa",
+                        f["test_id"],
+                    )
         except APIError:
-            self._tst_combo.addItem("— Testlar yuklanmadi —", None)
+            self._tst_combo.addItem("— Fanlar yuklanmadi —", None)
             self._start_btn.setEnabled(False)
+
+        # Oldingi tanlovni qayta tiklash
+        pre_stu  = self._pre_select.get("stu_id")
+        pre_test = self._pre_select.get("test_id")
+        if pre_stu:
+            for i in range(self._stu_combo.count()):
+                if self._stu_combo.itemData(i) == pre_stu:
+                    self._stu_combo.setCurrentIndex(i)
+                    break
+        if pre_test:
+            for i in range(self._tst_combo.count()):
+                if self._tst_combo.itemData(i) == pre_test:
+                    self._tst_combo.setCurrentIndex(i)
+                    break
 
     # ── Start ─────────────────────────────────────────────────────────────────
 
     def _start(self):
-        # Sinf
         cls_id   = self._cls_combo.currentData()
         cls_name = self._cls_combo.currentText().strip()
         if cls_id is None:
             self._show_err("⚠  Avval sinfni tanlang!")
             return
 
-        # O'quvchi
         stu_id = self._stu_combo.currentData()
         if stu_id is None:
             self._show_err("⚠  O'quvchini tanlang!")
@@ -312,27 +374,25 @@ class StudentInfoWindow(QMainWindow):
             self._show_err("⚠  O'quvchi topilmadi!")
             return
 
-        # Test
         test_id = self._tst_combo.currentData()
         if test_id is None:
             self._show_err("⚠  Testni tanlang!")
             return
 
-        first = stu["first_name"]
-        last  = stu["last_name"]
+        self._last_select = {"cls_id": cls_id, "stu_id": stu_id, "test_id": test_id}
 
         self._start_btn.setEnabled(False)
         self._start_btn.setText("⏳   Yuklanmoqda...")
         self._err_lbl.hide()
 
-        self._thread = _StartThread(test_id, first, last, cls_name)
+        self._thread = _StartThread(test_id, stu["first_name"], stu["last_name"], cls_name)
         self._thread.done.connect(self._on_started)
         self._thread.error.connect(self._on_error)
         self._thread.start()
 
     def _on_started(self, data: dict):
         from .exam_window import ExamWindow
-        self._exam = ExamWindow(data)
+        self._exam = ExamWindow(data, pre_select=self._last_select)
         self._exam.show()
         self.close()
 
@@ -345,3 +405,20 @@ class StudentInfoWindow(QMainWindow):
         self._err_lbl.setText(msg)
         self._err_lbl.show()
         QTimer.singleShot(5000, self._err_lbl.hide)
+
+
+# ── Yordamchi funksiya ────────────────────────────────────────────────────────
+
+def _label_row(icon: str, text: str) -> QHBoxLayout:
+    row = QHBoxLayout()
+    row.setSpacing(8)
+    ico = QLabel(icon)
+    ico.setFont(QFont("Segoe UI Emoji", 13))
+    ico.setStyleSheet("background: transparent; color: white;")
+    lbl = QLabel(text)
+    lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+    lbl.setStyleSheet("color: rgba(255,255,255,0.75); background: transparent;")
+    row.addWidget(ico)
+    row.addWidget(lbl)
+    row.addStretch()
+    return row

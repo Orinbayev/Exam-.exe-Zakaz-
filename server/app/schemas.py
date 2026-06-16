@@ -100,6 +100,7 @@ class QuestionOut(BaseModel):
     category_id: Optional[int] = None
     difficulty: str
     teacher_id: int
+    is_active: bool = True
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -182,6 +183,13 @@ class SubmitAnswer(BaseModel):
 class FinishSession(BaseModel):
     answers: Dict[str, str]  # {str(question_id): answer}
 
+class QuestionResult(BaseModel):
+    question_num: int
+    question_id: int
+    given_answer: Optional[str] = None
+    correct_answer: str
+    is_correct: bool
+
 class SessionResult(BaseModel):
     session_id: int
     student_name: str
@@ -195,6 +203,7 @@ class SessionResult(BaseModel):
     grade: Optional[str]
     is_passed: bool
     time_spent: Optional[int] = None  # sekundlarda
+    answers: Optional[List[QuestionResult]] = None
 
 
 # ── Stats & Results ───────────────────────────────────────────────────────────

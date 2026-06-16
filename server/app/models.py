@@ -30,12 +30,13 @@ class User(Base):
 
 
 class Category(Base):
-    """Savol kategoriyalari"""
+    """Savol kategoriyalari / Fanlar"""
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    time_limit = Column(Integer, default=30)   # daqiqalarda
     created_at = Column(DateTime, default=datetime.utcnow)
 
     teacher = relationship("User")
@@ -56,6 +57,7 @@ class Question(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     difficulty = Column(String(10), default="medium")  # easy|medium|hard
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     teacher = relationship("User", back_populates="questions")
@@ -181,4 +183,15 @@ class ClassTest(Base):
     id = Column(Integer, primary_key=True, index=True)
     class_id = Column(Integer, ForeignKey("student_classes.id"), nullable=False)
     test_id = Column(Integer, ForeignKey("tests.id"), nullable=False)
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ClassFan(Base):
+    """Sinf ↔ Fan bog'lanish (fan biriktirilganda test avtomatik yaratiladi)"""
+    __tablename__ = "class_fans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("student_classes.id"), nullable=False)
+    fan_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    test_id = Column(Integer, ForeignKey("tests.id"), nullable=True)
     assigned_at = Column(DateTime, default=datetime.utcnow)

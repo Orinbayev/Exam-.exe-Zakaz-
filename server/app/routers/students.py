@@ -29,8 +29,8 @@ class StudentUpdate(BaseModel):
 
 
 def get_models():
-    from ..models import StudentClass, Student, ClassTest
-    return StudentClass, Student, ClassTest
+    from ..models import StudentClass, Student, ClassTest, ClassFan
+    return StudentClass, Student, ClassTest, ClassFan
 
 
 # ── Classes (teacher) ─────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ def list_classes(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     q = db.query(StudentClass)
     if current_user.role != "superadmin":
         q = q.filter(StudentClass.teacher_id == current_user.id)
@@ -58,7 +58,7 @@ def list_classes(
 @router.get("/classes/public")
 def public_classes(db: Session = Depends(get_db)):
     """Faqat aktiv sinflar — token talab etilmaydi."""
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     classes = (db.query(StudentClass)
                .filter(StudentClass.is_active == True)
                .order_by(StudentClass.name).all())
@@ -71,7 +71,7 @@ def create_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     cls = StudentClass(name=data.name, teacher_id=current_user.id, is_active=False)
     db.add(cls)
     db.commit()
@@ -87,7 +87,7 @@ def toggle_class_active(
     current_user: User = Depends(require_teacher_or_admin)
 ):
     """Sinfni aktiv / noaktiv qilish."""
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="Sinf topilmadi")
@@ -102,7 +102,7 @@ def delete_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="Sinf topilmadi")
@@ -116,7 +116,7 @@ def delete_class(
 @router.get("/classes/{class_id}/tests")
 def get_class_tests(class_id: int, db: Session = Depends(get_db)):
     """Sinfga biriktirilgan testlar (public)."""
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     from ..models import Test
     links = db.query(ClassTest).filter(ClassTest.class_id == class_id).all()
     result = []
@@ -139,7 +139,7 @@ def assign_test_to_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     existing = db.query(ClassTest).filter(
         ClassTest.class_id == class_id, ClassTest.test_id == test_id
     ).first()
@@ -158,7 +158,7 @@ def unassign_test_from_class(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     link = db.query(ClassTest).filter(
         ClassTest.class_id == class_id, ClassTest.test_id == test_id
     ).first()
@@ -166,6 +166,111 @@ def unassign_test_from_class(
         db.delete(link)
         db.commit()
     return {"message": "Test ajratildi"}
+
+
+# ── Class ↔ Fan links ────────────────────────────────────────────────────────
+
+@router.get("/classes/{class_id}/fans")
+def get_class_fans(class_id: int, db: Session = Depends(get_db)):
+    """Sinfga biriktirilgan fanlar — token talab etilmaydi (public)."""
+    StudentClass, Student, ClassTest, ClassFan = get_models()
+    from ..models import Category
+    cf_list = db.query(ClassFan).filter(ClassFan.class_id == class_id).all()
+    result = []
+    for cf in cf_list:
+        cat = db.query(Category).filter(Category.id == cf.fan_id).first()
+        if cat:
+            result.append({
+                "fan_id":    cat.id,
+                "fan_name":  cat.name,
+                "test_id":   cf.test_id,
+                "time_limit": getattr(cat, "time_limit", 30),
+            })
+    return result
+
+
+@router.post("/classes/{class_id}/fans/{fan_id}")
+def assign_fan_to_class(
+    class_id: int,
+    fan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    """Fanni sinfga biriktirish — aktiv savollardan test avtomatik yaratiladi."""
+    StudentClass, Student, ClassTest, ClassFan = get_models()
+    from ..models import Category, Question, Test, TestQuestion
+
+    cat = db.query(Category).filter(Category.id == fan_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Fan topilmadi")
+
+    cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Sinf topilmadi")
+
+    active_qs = (db.query(Question)
+                 .filter(Question.category_id == fan_id, Question.is_active == True)
+                 .all())
+    if not active_qs:
+        raise HTTPException(status_code=400, detail="Bu fanda aktiv savollar yo'q! Avval savol qo'shing.")
+
+    existing = db.query(ClassFan).filter(
+        ClassFan.class_id == class_id, ClassFan.fan_id == fan_id
+    ).first()
+
+    if existing and existing.test_id:
+        # Testni yangilash (qayta sync)
+        test = db.query(Test).filter(Test.id == existing.test_id).first()
+        if test:
+            db.query(TestQuestion).filter(TestQuestion.test_id == test.id).delete()
+            for i, q in enumerate(active_qs):
+                db.add(TestQuestion(test_id=test.id, question_id=q.id, order_num=i))
+            test.time_limit = getattr(cat, "time_limit", 30)
+            test.name = cat.name
+            db.commit()
+            return {"message": "Fan yangilandi", "test_id": test.id,
+                    "question_count": len(active_qs)}
+
+    # Yangi test yaratish
+    test = Test(
+        name=cat.name,
+        teacher_id=current_user.id,
+        time_limit=getattr(cat, "time_limit", 30),
+        pass_percent=60.0,
+        shuffle_questions=True,
+        is_active=True,
+    )
+    db.add(test)
+    db.flush()
+
+    for i, q in enumerate(active_qs):
+        db.add(TestQuestion(test_id=test.id, question_id=q.id, order_num=i))
+
+    if existing:
+        existing.test_id = test.id
+    else:
+        db.add(ClassFan(class_id=class_id, fan_id=fan_id, test_id=test.id))
+
+    db.commit()
+    return {"message": "Fan biriktirildi", "test_id": test.id,
+            "question_count": len(active_qs)}
+
+
+@router.delete("/classes/{class_id}/fans/{fan_id}")
+def unassign_fan_from_class(
+    class_id: int,
+    fan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    StudentClass, Student, ClassTest, ClassFan = get_models()
+    cf = db.query(ClassFan).filter(
+        ClassFan.class_id == class_id, ClassFan.fan_id == fan_id
+    ).first()
+    if cf:
+        db.delete(cf)
+        db.commit()
+    return {"message": "Fan ajratildi"}
 
 
 # ── Students ──────────────────────────────────────────────────────────────────
@@ -176,7 +281,7 @@ def list_students(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     students = (db.query(Student).filter(Student.class_id == class_id)
                 .order_by(Student.last_name).all())
     return [{"id": s.id, "first_name": s.first_name, "last_name": s.last_name,
@@ -186,7 +291,7 @@ def list_students(
 
 @router.get("/classes/{class_id}/students/public")
 def public_students(class_id: int, db: Session = Depends(get_db)):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     students = (db.query(Student).filter(Student.class_id == class_id)
                 .order_by(Student.last_name).all())
     return [{"id": s.id, "first_name": s.first_name, "last_name": s.last_name}
@@ -200,7 +305,7 @@ def add_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     student = Student(first_name=data.first_name, last_name=data.last_name,
                       class_id=class_id, parent_telegram_id=data.parent_telegram_id)
     db.add(student)
@@ -218,7 +323,7 @@ def update_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="O'quvchi topilmadi")
@@ -237,7 +342,7 @@ def delete_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    StudentClass, Student, ClassTest = get_models()
+    StudentClass, Student, ClassTest, ClassFan = get_models()
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="O'quvchi topilmadi")

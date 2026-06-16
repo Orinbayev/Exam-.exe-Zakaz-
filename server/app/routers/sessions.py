@@ -7,7 +7,7 @@ import random
 from datetime import datetime
 from ..database import get_db
 from ..models import Test, TestQuestion, ExamSession, Question
-from ..schemas import SessionStart, SessionStartResponse, FinishSession, SessionResult, QuestionForExam
+from ..schemas import SessionStart, SessionStartResponse, FinishSession, SessionResult, QuestionForExam, QuestionResult
 from ..auth import require_teacher_or_admin, get_current_user
 from ..models import User
 
@@ -87,16 +87,26 @@ async def finish_exam(
     test = session.test
     tqs = {tq.question_id: tq.question for tq in test.test_questions}
 
+    # Har bir savol uchun natija hisoblash
+    ordered_tqs = sorted(test.test_questions, key=lambda x: x.order_num)
     correct = 0
-    for q_id_str, answer in data.answers.items():
-        q_id = int(q_id_str)
-        if q_id in tqs:
-            q = tqs[q_id]
-            if answer.upper() == q.correct_answer:
-                correct += 1
+    per_question: list[QuestionResult] = []
+    for i, tq in enumerate(ordered_tqs):
+        q = tq.question
+        given = data.answers.get(str(q.id))
+        is_correct = bool(given and given.upper() == q.correct_answer)
+        if is_correct:
+            correct += 1
+        per_question.append(QuestionResult(
+            question_num=i + 1,
+            question_id=q.id,
+            given_answer=given.upper() if given else None,
+            correct_answer=q.correct_answer,
+            is_correct=is_correct,
+        ))
 
-    total = len(tqs)
-    wrong = total - correct
+    total = len(ordered_tqs)
+    wrong = sum(1 for pq in per_question if pq.given_answer and not pq.is_correct)
     score_percent = (correct / total * 100) if total > 0 else 0.0
     grade = calculate_grade(score_percent, test.grade_settings)
     is_passed = score_percent >= test.pass_percent
@@ -130,7 +140,8 @@ async def finish_exam(
         score_percent=round(score_percent, 2),
         grade=grade,
         is_passed=is_passed,
-        time_spent=time_spent
+        time_spent=time_spent,
+        answers=per_question,
     )
 
 

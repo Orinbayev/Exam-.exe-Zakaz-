@@ -54,14 +54,20 @@ async def startup():
     Base.metadata.create_all(bind=engine)
     logger.info("Ma'lumotlar bazasi tayyor")
 
-    # Migration: add is_active to student_classes if missing
+    # Migrations: add missing columns safely
     from sqlalchemy import text
     with engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0"))
-            conn.commit()
-        except Exception:
-            pass  # column already exists
+        migrations = [
+            "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0",
+            "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT 1",
+            "ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30",
+        ]
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
 
     db = SessionLocal()
     try:

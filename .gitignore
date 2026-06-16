@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Database (local faqat — Railway-da PostgreSQL ishlatiladi)
+server/exam_system.db
+server/exam_system.db-shm
+server/exam_system.db-wal
+
+# Environment
+.env
+.env.local
+
+# PyInstaller build
+client/build/
+client/dist/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log

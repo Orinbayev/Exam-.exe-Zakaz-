@@ -135,6 +135,27 @@ class APIClient:
     def create_category(self, name: str) -> dict:
         return self._request("POST", "/api/questions/categories", json={"name": name})
 
+    def delete_category(self, cat_id: int):
+        return self._request("DELETE", f"/api/questions/categories/{cat_id}")
+
+    def toggle_question_active(self, q_id: int) -> dict:
+        return self._request("PATCH", f"/api/questions/{q_id}/toggle-active")
+
+    def set_category_time_limit(self, cat_id: int, time_limit: int) -> dict:
+        return self._request("PUT", f"/api/questions/categories/{cat_id}/time-limit",
+                             params={"time_limit": time_limit})
+
+    # ── Class ↔ Fan ───────────────────────────────────────────────────────────
+
+    def get_class_fans(self, class_id: int) -> list:
+        return self._request("GET", f"/api/students/classes/{class_id}/fans")
+
+    def assign_fan_to_class(self, class_id: int, fan_id: int) -> dict:
+        return self._request("POST", f"/api/students/classes/{class_id}/fans/{fan_id}")
+
+    def unassign_fan_from_class(self, class_id: int, fan_id: int) -> dict:
+        return self._request("DELETE", f"/api/students/classes/{class_id}/fans/{fan_id}")
+
     # ── Tests ─────────────────────────────────────────────────────────────────
 
     def get_tests(self) -> list:

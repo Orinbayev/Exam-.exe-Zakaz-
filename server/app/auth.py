@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 
-SECRET_KEY = "smart-exam-system-secret-key-2024-uzbekistan"
+SECRET_KEY = os.environ.get("SECRET_KEY", "smart-exam-system-secret-key-2024-uzbekistan")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 12
 

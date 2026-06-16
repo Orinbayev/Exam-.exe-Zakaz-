@@ -7,13 +7,15 @@ import sys
 
 
 def restart_to_login(current_window: QMainWindow = None):
-    """Login oynasiga qaytish."""
+    """Login oynasiga qaytish — avval login ko'rsatiladi, keyin eski oyna yopiladi."""
     from .windows.login_window import LoginWindow
-    if current_window:
-        current_window.close()
     login = LoginWindow()
     login.login_success.connect(open_dashboard)
     login.show()
+    if current_window:
+        current_window.hide()
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(80, current_window.close)
     return login
 
 

@@ -5,11 +5,11 @@ import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem,
-    QDialog, QDialogButtonBox, QCheckBox, QScrollArea,
+    QDialog, QCheckBox,
     QLineEdit, QMessageBox,
     QHeaderView, QFrame, QFileDialog,
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
@@ -706,29 +706,117 @@ class StudentsWidget(QWidget):
         btn_row.addWidget(self.imp_xl_btn)
         rl.addLayout(btn_row)
 
-        # Test biriktirish
-        test_link_frame = QFrame()
-        test_link_frame.setStyleSheet(f"QFrame {{ background: {COLORS['bg_medium']}; border: 1px solid {COLORS['border']}; border-radius: 10px; }}")
-        tl = QVBoxLayout(test_link_frame)
+        # Fan biriktirish
+        fan_link_frame = QFrame()
+        fan_link_frame.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['bg_dark']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 10px;
+            }}
+        """)
+        tl = QVBoxLayout(fan_link_frame)
         tl.setContentsMargins(12, 10, 12, 10)
         tl.setSpacing(8)
 
         tl_hdr = QHBoxLayout()
-        tl_title = QLabel("🔗  Biriktirilgan Testlar")
+        tl_title = QLabel("📚  Biriktirilgan Fanlar")
         tl_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         tl_hdr.addWidget(tl_title)
         tl_hdr.addStretch()
-        add_test_btn = QPushButton("+ Test biriktirish")
-        add_test_btn.setObjectName("success")
-        add_test_btn.clicked.connect(self._assign_test_dialog)
-        tl_hdr.addWidget(add_test_btn)
+
+        sync_btn = QPushButton("🔄 Yangilash")
+        sync_btn.setToolTip("Yangi savollar qo'shilgan bo'lsa — testni yangilaydi")
+        sync_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['bg_light']};
+                color: #69F0AE; border: 1px solid rgba(105,240,174,0.40);
+                border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: bold;
+            }}
+            QPushButton:hover {{ background: rgba(105,240,174,0.15); }}
+        """)
+        sync_btn.clicked.connect(self._sync_all_fans)
+        tl_hdr.addWidget(sync_btn)
+
+        add_fan_btn = QPushButton("📚 Fan biriktirish")
+        add_fan_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['primary']};
+                color: white; border: none; border-radius: 6px;
+                padding: 6px 12px; font-size: 12px; font-weight: bold;
+            }}
+            QPushButton:hover {{ background: {COLORS['primary_light']}; }}
+        """)
+        add_fan_btn.clicked.connect(self._assign_fan_dialog)
+        tl_hdr.addWidget(add_fan_btn)
         tl.addLayout(tl_hdr)
 
-        self.linked_tests_list = QListWidget()
-        self.linked_tests_list.setMaximumHeight(120)
-        self.linked_tests_list.setStyleSheet(_LIST_STYLE)
-        tl.addWidget(self.linked_tests_list)
-        rl.addWidget(test_link_frame)
+        self.linked_fans_list = QListWidget()
+        self.linked_fans_list.setMaximumHeight(110)
+        self.linked_fans_list.setStyleSheet(_LIST_STYLE)
+        tl.addWidget(self.linked_fans_list)
+        rl.addWidget(fan_link_frame)
+
+        # ── LIVE NATIJALAR ────────────────────────────────────────────────────
+        live_frame = QFrame()
+        live_frame.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['bg_dark']};
+                border: 1px solid rgba(105,240,174,0.25);
+                border-radius: 10px;
+            }}
+        """)
+        live_layout = QVBoxLayout(live_frame)
+        live_layout.setContentsMargins(12, 10, 12, 10)
+        live_layout.setSpacing(7)
+
+        live_hdr = QHBoxLayout()
+        live_title = QLabel("📊  Sinf natijalari  (oxirgi)")
+        live_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        live_title.setStyleSheet("color: #69F0AE; background: transparent;")
+        live_hdr.addWidget(live_title)
+        live_hdr.addStretch()
+
+        self._live_refresh_btn = QPushButton("🔄")
+        self._live_refresh_btn.setFixedSize(30, 28)
+        self._live_refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['bg_light']};
+                color: white; border: 1px solid {COLORS['border']};
+                border-radius: 6px; font-size: 12px;
+            }}
+            QPushButton:hover {{ background: {COLORS['primary']}; }}
+        """)
+        self._live_refresh_btn.clicked.connect(self._load_live_results)
+        live_hdr.addWidget(self._live_refresh_btn)
+        live_layout.addLayout(live_hdr)
+
+        self._live_table = QTableWidget()
+        self._live_table.setColumnCount(5)
+        self._live_table.setHorizontalHeaderLabels(
+            ["Vaqt", "O'quvchi", "Fan", "To'g'ri", "Baho"]
+        )
+        self._live_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        self._live_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Stretch
+        )
+        self._live_table.setColumnWidth(0, 90)
+        self._live_table.setColumnWidth(3, 70)
+        self._live_table.setColumnWidth(4, 55)
+        self._live_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._live_table.verticalHeader().setVisible(False)
+        self._live_table.setMaximumHeight(160)
+        self._live_table.setStyleSheet(_TABLE_STYLE)
+        live_layout.addWidget(self._live_table)
+
+        rl.addWidget(live_frame)
+
+        # Auto-refresh every 30s
+        self._live_timer = QTimer()
+        self._live_timer.timeout.connect(self._load_live_results)
+        self._live_timer.start(30_000)
 
         panels.addWidget(right, stretch=1)
         root.addLayout(panels, stretch=1)
@@ -770,7 +858,8 @@ class StudentsWidget(QWidget):
         self.add_st_btn.setEnabled(True)
         self.imp_xl_btn.setEnabled(True)
         self._load_students()
-        self._load_linked_tests()
+        self._load_linked_fans()
+        self._load_live_results()
 
     def _load_students(self):
         if not self._cls_id:
@@ -931,75 +1020,235 @@ class StudentsWidget(QWidget):
         except APIError as e:
             QMessageBox.critical(self, "Xato", str(e))
 
-    # ── Test biriktirish ──────────────────────────────────────────────────────
+    # ── Fan biriktirish ───────────────────────────────────────────────────────
 
-    def _load_linked_tests(self):
-        self.linked_tests_list.clear()
+    def _load_linked_fans(self):
+        self.linked_fans_list.clear()
         if not self._cls_id:
             return
         try:
-            links = api.get_class_tests_public(self._cls_id)
-            for t in links:
-                item = QListWidgetItem(f"📋 {t['name']}  ({t['question_count']} savol)")
-                item.setData(Qt.ItemDataRole.UserRole, t['id'])
-                item.setForeground(QColor(COLORS['success_light']))
-                self.linked_tests_list.addItem(item)
-            if not links:
-                item = QListWidgetItem("— Hech qanday test biriktirilmagan —")
-                item.setForeground(QColor(COLORS['text_secondary']))
-                self.linked_tests_list.addItem(item)
+            fans = api.get_class_fans(self._cls_id)
+            for f in fans:
+                time_lbl = f.get("time_limit", 30)
+                item = QListWidgetItem(
+                    f"📚  {f['fan_name']}  ·  ⏱ {time_lbl} daqiqa"
+                )
+                item.setData(Qt.ItemDataRole.UserRole, f["fan_id"])
+                item.setForeground(QColor(COLORS["success_light"]))
+                self.linked_fans_list.addItem(item)
+            if not fans:
+                item = QListWidgetItem("— Bu sinfga hali fan biriktirilmagan —")
+                item.setForeground(QColor(COLORS["text_secondary"]))
+                self.linked_fans_list.addItem(item)
         except APIError:
             pass
 
-    def _assign_test_dialog(self):
+    def _assign_fan_dialog(self):
         if not self._cls_id:
             QMessageBox.information(self, "Tanlash", "Avval sinf tanlang!")
             return
         try:
-            all_tests = api.get_tests()
-            if not all_tests:
-                QMessageBox.information(self, "Test yo'q", "Hali test yaratilmagan!")
+            all_fans = api.get_categories()
+            if not all_fans:
+                QMessageBox.information(self, "Fan yo'q",
+                    "Hali fan yaratilmagan!\n\n«Fan» bo'limidan avval fan yarating.")
                 return
-            linked = [t['id'] for t in api.get_class_tests_public(self._cls_id)]
+
+            linked_ids = {f["fan_id"] for f in api.get_class_fans(self._cls_id)}
+
             dlg = QDialog(self)
-            dlg.setWindowTitle("Test biriktirish")
-            dlg.setMinimumWidth(380)
-            dlg.setStyleSheet(f"QDialog {{ background: {COLORS['bg_medium']}; }} QLabel {{ color: white; }}")
+            dlg.setWindowTitle(f"Fan biriktirish — {self._cls_name}")
+            dlg.setMinimumWidth(420)
+            dlg.setStyleSheet(f"""
+                QDialog {{ background: {COLORS['bg_medium']}; }}
+                QLabel {{ color: white; background: transparent; }}
+                QCheckBox {{ color: white; font-size: 13px; padding: 6px 0; }}
+                QCheckBox::indicator {{ width:18px; height:18px; border-radius:4px;
+                    border:2px solid {COLORS['border']}; background:{COLORS['bg_dark']}; }}
+                QCheckBox::indicator:checked {{
+                    background: {COLORS['primary']}; border-color: {COLORS['primary_light']};
+                }}
+                QPushButton {{
+                    background: {COLORS['primary']}; color: white; border: none;
+                    border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: bold;
+                }}
+                QPushButton:hover {{ background: {COLORS['primary_light']}; }}
+                QPushButton#cancel {{
+                    background: {COLORS['bg_light']}; border: 1px solid {COLORS['border']};
+                }}
+            """)
+
             dl = QVBoxLayout(dlg)
-            dl.setContentsMargins(20, 16, 20, 16)
+            dl.setContentsMargins(24, 20, 24, 20)
             dl.setSpacing(10)
 
-            lbl = QLabel(f"«{self._cls_name}» sinfi uchun testlarni tanlang:")
-            lbl.setFont(QFont("Segoe UI", 11))
-            lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
-            dl.addWidget(lbl)
+            hdr_lbl = QLabel(f"📚  «{self._cls_name}» sinfi uchun fan tanlang:")
+            hdr_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+            dl.addWidget(hdr_lbl)
+
+            hint = QLabel("✅ Biriktirilgan (saqlasangiz test yangilanadi)  |  ☐ Biriktirilmagan")
+            hint.setFont(QFont("Segoe UI", 10))
+            hint.setStyleSheet(f"color: {COLORS['text_secondary']};")
+            dl.addWidget(hint)
+
+            sep = QFrame()
+            sep.setFrameShape(QFrame.Shape.HLine)
+            sep.setStyleSheet(f"color: {COLORS['border']};")
+            dl.addWidget(sep)
 
             checkboxes = []
-            for t in all_tests:
-                cb = QCheckBox(f"{t['name']}  ({t.get('question_count', 0)} savol)")
-                cb.setChecked(t['id'] in linked)
-                cb.setStyleSheet("color: white; font-size: 12px;")
-                cb.setProperty("test_id", t['id'])
+            for f in all_fans:
+                cb = QCheckBox(
+                    f"  {f['name']}  ·  {f.get('question_count', 0)} ta savol"
+                )
+                cb.setChecked(f["id"] in linked_ids)
+                cb.setProperty("fan_id", f["id"])
+                cb.setProperty("fan_name", f["name"])
                 dl.addWidget(cb)
                 checkboxes.append(cb)
 
-            btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-            btns.accepted.connect(dlg.accept)
-            btns.rejected.connect(dlg.reject)
-            dl.addWidget(btns)
+            dl.addSpacing(8)
+            info = QLabel(
+                "ℹ️  «Saqlash» bosilganda belgilangan fanlar yangilanadi — "
+                "yangi qo'shilgan savollar avtomatik testga qo'shiladi."
+            )
+            info.setFont(QFont("Segoe UI", 10))
+            info.setStyleSheet(f"color: {COLORS['text_secondary']};")
+            info.setWordWrap(True)
+            dl.addWidget(info)
 
-            if dlg.exec() == QDialog.DialogCode.Accepted:
-                for cb in checkboxes:
-                    tid = cb.property("test_id")
-                    was_linked = tid in linked
-                    now_checked = cb.isChecked()
-                    if now_checked and not was_linked:
-                        api.assign_test_to_class(self._cls_id, tid)
-                    elif not now_checked and was_linked:
-                        api.unassign_test_from_class(self._cls_id, tid)
-                self._load_linked_tests()
+            btn_row = QHBoxLayout()
+            btn_row.setSpacing(10)
+            cancel_btn = QPushButton("Bekor qilish")
+            cancel_btn.setObjectName("cancel")
+            cancel_btn.clicked.connect(dlg.reject)
+            save_btn = QPushButton("✅  Saqlash")
+            save_btn.clicked.connect(dlg.accept)
+            btn_row.addWidget(cancel_btn)
+            btn_row.addWidget(save_btn)
+            dl.addLayout(btn_row)
+
+            if dlg.exec() != QDialog.DialogCode.Accepted:
+                return
+
+            errors = []
+            for cb in checkboxes:
+                fid = cb.property("fan_id")
+                fname = cb.property("fan_name")
+                was_linked = fid in linked_ids
+                now_checked = cb.isChecked()
+                if now_checked:
+                    # Har doim assign — server yangi savollarni ham qo'shadi
+                    try:
+                        api.assign_fan_to_class(self._cls_id, fid)
+                    except APIError as e:
+                        errors.append(f"«{fname}»: {e}")
+                elif was_linked and not now_checked:
+                    try:
+                        api.unassign_fan_from_class(self._cls_id, fid)
+                    except APIError as e:
+                        errors.append(f"«{fname}» (ajratish): {e}")
+
+            if errors:
+                QMessageBox.warning(self, "Ba'zi xatolar", "\n".join(errors))
+            self._load_linked_fans()
+
         except APIError as e:
             QMessageBox.critical(self, "Xato", str(e))
+
+    # ── Fan testlarini yangilash ──────────────────────────────────────────────
+
+    def _sync_all_fans(self):
+        """Biriktirilgan barcha fanlarning testini yangi savollar bilan yangilaydi."""
+        if not self._cls_id:
+            QMessageBox.information(self, "Tanlash", "Avval sinf tanlang!")
+            return
+        try:
+            fans = api.get_class_fans(self._cls_id)
+            if not fans:
+                QMessageBox.information(self, "Fan yo'q",
+                    "Bu sinfga biriktirilgan fan yo'q.")
+                return
+            updated = []
+            errors  = []
+            for f in fans:
+                try:
+                    res = api.assign_fan_to_class(self._cls_id, f["fan_id"])
+                    qc = res.get("question_count", "?")
+                    updated.append(f"✅  {f['fan_name']}  →  {qc} ta savol")
+                except APIError as e:
+                    errors.append(f"❌  {f['fan_name']}: {e}")
+            msg = "\n".join(updated)
+            if errors:
+                msg += "\n\n" + "\n".join(errors)
+            QMessageBox.information(self, "✅ Yangilandi", msg)
+            self._load_linked_fans()
+        except APIError as e:
+            QMessageBox.critical(self, "Xato", str(e))
+
+    # ── Live natijalar ────────────────────────────────────────────────────────
+
+    def _load_live_results(self):
+        if not self._cls_id:
+            return
+        try:
+            all_results = api.get_results()
+        except APIError:
+            return
+
+        cls_name_clean = self._cls_name.replace("🟢", "").replace("⚫", "").strip()
+        filtered = [
+            r for r in all_results
+            if r.get("student_class", "").strip() == cls_name_clean
+        ]
+        filtered = filtered[:15]   # Oxirgi 15 ta
+
+        GRADE_ICON = {5: "🏆", 4: "🥈", 3: "🥉", 2: "❌"}
+        GRADE_COLOR = {5: "#FFD700", 4: "#42A5F5", 3: "#FFA726", 2: "#EF5350"}
+
+        self._live_table.setRowCount(len(filtered))
+        for row, r in enumerate(filtered):
+            self._live_table.setRowHeight(row, 34)
+
+            # Vaqt
+            dt = (r.get("end_time") or r.get("start_time") or "")
+            time_str = dt[11:16] if len(dt) >= 16 else dt[:10]
+            t_item = QTableWidgetItem(time_str)
+            t_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            t_item.setFont(QFont("Segoe UI", 10))
+            t_item.setForeground(QColor("#9E9E9E"))
+            self._live_table.setItem(row, 0, t_item)
+
+            # O'quvchi
+            name = f"{r.get('student_lastname','')} {r.get('student_name','')}".strip()
+            n_item = QTableWidgetItem(name or r.get("student_name", "—"))
+            n_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            self._live_table.setItem(row, 1, n_item)
+
+            # Fan (test_name)
+            fan_item = QTableWidgetItem(r.get("test_name", "—"))
+            fan_item.setFont(QFont("Segoe UI", 10))
+            fan_item.setForeground(QColor("#90CAF9"))
+            self._live_table.setItem(row, 2, fan_item)
+
+            # To'g'ri / jami
+            score_str = f"{r.get('correct_count',0)}/{r.get('total_questions',0)}"
+            s_item = QTableWidgetItem(score_str)
+            s_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            s_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            is_passed = r.get("is_passed", False)
+            s_item.setForeground(QColor("#69F0AE" if is_passed else "#EF9A9A"))
+            self._live_table.setItem(row, 3, s_item)
+
+            # Baho
+            grade = r.get("grade", 2)
+            g_item = QTableWidgetItem(
+                f"{GRADE_ICON.get(grade, '?')} {grade}"
+            )
+            g_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            g_item.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            g_item.setForeground(QColor(GRADE_COLOR.get(grade, "#9E9E9E")))
+            self._live_table.setItem(row, 4, g_item)
 
     # ── Excel ──────────────────────────────────────────────────────────────────
 
