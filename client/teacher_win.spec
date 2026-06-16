@@ -1,24 +1,24 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
+
+# PyQt6 ni to'liq yig'ish
+qt_datas, qt_binaries, qt_hidden = collect_all('PyQt6')
 
 a = Analysis(
     ['run_client.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=qt_binaries,
     datas=[
         ('app/assets', 'assets'),
         ('config.json', '.'),
-    ],
-    hiddenimports=[
+    ] + qt_datas,
+    hiddenimports=qt_hidden + [
         'pkgutil',
         'pkg_resources',
         'importlib.metadata',
         'importlib.resources',
-        'PyQt6.QtCore',
-        'PyQt6.QtGui',
-        'PyQt6.QtWidgets',
-        'PyQt6.sip',
         'app.api_client',
         'app.config',
         'app.main',
@@ -52,7 +52,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     target_arch=None,
@@ -67,7 +67,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='OqituvchiPanel',
 )
