@@ -25,7 +25,18 @@ jobs:
       - name: pip va site-packages yoqish
         shell: pwsh
         run: |
-          (Get-Content "pyembed\python311._pth") -replace '#import site','import site' | Set-Content "pyembed\python311._pth"
+          # site-packages yoqish va app root (..) path ga qo'shish
+          $pth = Get-Content "pyembed\python311._pth"
+          $pth = $pth -replace '#import site','import site'
+          $pth += ".."
+          $pth | Set-Content "pyembed\python311._pth"
+          # sitecustomize.py: app root ni sys.path ga qo'shish
+          @(
+            "import sys, os",
+            "_app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))",
+            "if _app_root not in sys.path:",
+            "    sys.path.insert(0, _app_root)"
+          ) | Set-Content "pyembed\sitecustomize.py" -Encoding ASCII
           Invoke-WebRequest "https://bootstrap.pypa.io/get-pip.py" -OutFile "get-pip.py"
           .\pyembed\python.exe get-pip.py -q --no-warn-script-location
 
