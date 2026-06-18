@@ -1,4 +1,4 @@
-name: Windows Bundle yasash
+name: Windows Installer yasash
 
 on:
   push:
@@ -16,66 +16,146 @@ jobs:
       - name: Kodni yuklab olish
         uses: actions/checkout@v4
 
+      # ── 1. Embedded Python yuklab olish ──────────────────────────────────────
       - name: Python 3.11 embedded yuklab olish
         run: |
-          $url = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
-          Invoke-WebRequest -Uri $url -OutFile "python-embed.zip"
-          Expand-Archive "python-embed.zip" -DestinationPath "python-embed"
+          Invoke-WebRequest `
+            "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" `
+            -OutFile "py.zip"
+          Expand-Archive "py.zip" -DestinationPath "pyembed"
 
-      - name: Embedded Python ga pip va site-packages yoqish
+      # ── 2. pip yoqish ────────────────────────────────────────────────────────
+      - name: pip va site-packages yoqish
         run: |
-          (Get-Content "python-embed\python311._pth") -replace '#import site', 'import site' | Set-Content "python-embed\python311._pth"
-          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "get-pip.py"
-          .\python-embed\python.exe get-pip.py --no-warn-script-location -q
+          (Get-Content "pyembed\python311._pth") `
+            -replace '#import site','import site' |
+            Set-Content "pyembed\python311._pth"
+          Invoke-WebRequest "https://bootstrap.pypa.io/get-pip.py" -OutFile "get-pip.py"
+          .\pyembed\python.exe get-pip.py -q --no-warn-script-location
 
+      # ── 3. Kutubxonalar ──────────────────────────────────────────────────────
       - name: Kutubxonalar o'rnatish
         run: |
-          .\python-embed\python.exe -m pip install `
+          .\pyembed\python.exe -m pip install -q --no-warn-script-location `
             PyQt6==6.6.0 `
             PyQt6-Charts==6.6.0 `
             requests==2.31.0 `
-            matplotlib==3.8.0 `
-            openpyxl==3.1.2 `
-            --no-warn-script-location -q
+            openpyxl==3.1.2
 
+      # ── 4. O'QUVCHI bundle ───────────────────────────────────────────────────
       - name: O'quvchi bundle yasash
         run: |
-          New-Item -ItemType Directory -Path "OquvchiPanel\python" -Force
-          New-Item -ItemType Directory -Path "OquvchiPanel\app" -Force
-          Copy-Item -Recurse "python-embed\*" "OquvchiPanel\python\"
-          Copy-Item -Recurse "client\app\*" "OquvchiPanel\app\"
-          Copy-Item "client\run_student.py" "OquvchiPanel\run_student.py"
-          Copy-Item "client\config.json" "OquvchiPanel\config.json"
+          New-Item -ItemType Directory -Path "dist\OquvchiPanel\python" -Force | Out-Null
+          New-Item -ItemType Directory -Path "dist\OquvchiPanel\app"    -Force | Out-Null
+          Copy-Item -Recurse "pyembed\*"      "dist\OquvchiPanel\python\"
+          Copy-Item -Recurse "client\app\*"   "dist\OquvchiPanel\app\"
+          Copy-Item "client\run_student.py"   "dist\OquvchiPanel\run_student.py"
+          Copy-Item "client\config.json"      "dist\OquvchiPanel\config.json"
 
-          $bat = "@echo off`r`ncd /d ""%~dp0""`r`nset PYTHONPATH=%~dp0`r`nstart `"`" python\python.exe run_student.py`r`n"
-          Set-Content -Path "OquvchiPanel\OquvchiPanel.bat" -Value $bat -Encoding ASCII
+          # Konsol oynasi ko'rsatmaydigan VBS launcher
+          $vbs = @'
+          Set sh = CreateObject("WScript.Shell")
+          p = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))
+          sh.CurrentDirectory = p
+          sh.Environment("Process")("PYTHONPATH") = p
+          sh.Run p & "python\pythonw.exe run_student.py", 0, False
+          '@
+          Set-Content "dist\OquvchiPanel\OquvchiPanel.vbs" $vbs -Encoding ASCII
 
-          Compress-Archive -Path "OquvchiPanel" -DestinationPath "OquvchiPanel-Windows.zip" -Force
-
+      # ── 5. O'QITUVCHI bundle ─────────────────────────────────────────────────
       - name: O'qituvchi bundle yasash
         run: |
-          New-Item -ItemType Directory -Path "OqituvchiPanel\python" -Force
-          New-Item -ItemType Directory -Path "OqituvchiPanel\app" -Force
-          Copy-Item -Recurse "python-embed\*" "OqituvchiPanel\python\"
-          Copy-Item -Recurse "client\app\*" "OqituvchiPanel\app\"
-          Copy-Item "client\run_client.py" "OqituvchiPanel\run_client.py"
-          Copy-Item "client\config.json" "OqituvchiPanel\config.json"
+          New-Item -ItemType Directory -Path "dist\OqituvchiPanel\python" -Force | Out-Null
+          New-Item -ItemType Directory -Path "dist\OqituvchiPanel\app"    -Force | Out-Null
+          Copy-Item -Recurse "pyembed\*"      "dist\OqituvchiPanel\python\"
+          Copy-Item -Recurse "client\app\*"   "dist\OqituvchiPanel\app\"
+          Copy-Item "client\run_client.py"    "dist\OqituvchiPanel\run_client.py"
+          Copy-Item "client\config.json"      "dist\OqituvchiPanel\config.json"
 
-          $bat = "@echo off`r`ncd /d ""%~dp0""`r`nset PYTHONPATH=%~dp0`r`nstart `"`" python\python.exe run_client.py`r`n"
-          Set-Content -Path "OqituvchiPanel\OqituvchiPanel.bat" -Value $bat -Encoding ASCII
+          $vbs = @'
+          Set sh = CreateObject("WScript.Shell")
+          p = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))
+          sh.CurrentDirectory = p
+          sh.Environment("Process")("PYTHONPATH") = p
+          sh.Run p & "python\pythonw.exe run_client.py", 0, False
+          '@
+          Set-Content "dist\OqituvchiPanel\OqituvchiPanel.vbs" $vbs -Encoding ASCII
 
-          Compress-Archive -Path "OqituvchiPanel" -DestinationPath "OqituvchiPanel-Windows.zip" -Force
+      # ── 6. INNO SETUP — O'quvchi installer ──────────────────────────────────
+      - name: O'quvchi Setup.exe yasash
+        run: |
+          $src = (Resolve-Path "dist\OquvchiPanel").Path
+          $out = (Resolve-Path ".").Path
+          $iss = @"
+          [Setup]
+          AppName=Smart Exam - Oquvchi Paneli
+          AppVersion=1.0
+          AppPublisher=Smart Exam System
+          DefaultDirName={autopf}\SmartExam\OquvchiPanel
+          DefaultGroupName=Smart Exam
+          OutputDir=$out
+          OutputBaseFilename=OquvchiPanel-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          DisableProgramGroupPage=yes
 
-      - name: O'quvchi artifact yuklash
+          [Files]
+          Source: "$src\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{commondesktop}\Oquvchi Paneli"; Filename: "{app}\OquvchiPanel.vbs"
+          Name: "{group}\Oquvchi Paneli";         Filename: "{app}\OquvchiPanel.vbs"
+
+          [Run]
+          Filename: "{app}\OquvchiPanel.vbs"; Description: "Dasturni ishga tushirish"; Flags: nowait postinstall skipifsilent shellexec
+          "@
+          Set-Content "student.iss" $iss -Encoding UTF8
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "student.iss"
+
+      # ── 7. INNO SETUP — O'qituvchi installer ────────────────────────────────
+      - name: O'qituvchi Setup.exe yasash
+        run: |
+          $src = (Resolve-Path "dist\OqituvchiPanel").Path
+          $out = (Resolve-Path ".").Path
+          $iss = @"
+          [Setup]
+          AppName=Smart Exam - Oqituvchi Paneli
+          AppVersion=1.0
+          AppPublisher=Smart Exam System
+          DefaultDirName={autopf}\SmartExam\OqituvchiPanel
+          DefaultGroupName=Smart Exam
+          OutputDir=$out
+          OutputBaseFilename=OqituvchiPanel-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          DisableProgramGroupPage=yes
+
+          [Files]
+          Source: "$src\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{commondesktop}\Oqituvchi Paneli"; Filename: "{app}\OqituvchiPanel.vbs"
+          Name: "{group}\Oqituvchi Paneli";         Filename: "{app}\OqituvchiPanel.vbs"
+
+          [Run]
+          Filename: "{app}\OqituvchiPanel.vbs"; Description: "Dasturni ishga tushirish"; Flags: nowait postinstall skipifsilent shellexec
+          "@
+          Set-Content "teacher.iss" $iss -Encoding UTF8
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "teacher.iss"
+
+      # ── 8. Artifacts ─────────────────────────────────────────────────────────
+      - name: O'quvchi Setup.exe yuklash
         uses: actions/upload-artifact@v4
         with:
-          name: OquvchiPanel-Windows
-          path: OquvchiPanel-Windows.zip
+          name: OquvchiPanel-Setup
+          path: OquvchiPanel-Setup.exe
           retention-days: 30
 
-      - name: O'qituvchi artifact yuklash
+      - name: O'qituvchi Setup.exe yuklash
         uses: actions/upload-artifact@v4
         with:
-          name: OqituvchiPanel-Windows
-          path: OqituvchiPanel-Windows.zip
+          name: OqituvchiPanel-Setup
+          path: OqituvchiPanel-Setup.exe
           retention-days: 30
