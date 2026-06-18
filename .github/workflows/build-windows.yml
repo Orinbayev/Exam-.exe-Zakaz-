@@ -40,37 +40,29 @@ jobs:
 
       - name: O'quvchi bundle yasash
         run: |
-          New-Item -ItemType Directory -Path "OquvchiPanel" -Force
-          Copy-Item -Recurse "python-embed\*" "OquvchiPanel\python"
-          Copy-Item -Recurse "client\app" "OquvchiPanel\app"
-          Copy-Item "client\run_student.py" "OquvchiPanel\"
-          Copy-Item "client\config.json" "OquvchiPanel\"
+          New-Item -ItemType Directory -Path "OquvchiPanel\python" -Force
+          New-Item -ItemType Directory -Path "OquvchiPanel\app" -Force
+          Copy-Item -Recurse "python-embed\*" "OquvchiPanel\python\"
+          Copy-Item -Recurse "client\app\*" "OquvchiPanel\app\"
+          Copy-Item "client\run_student.py" "OquvchiPanel\run_student.py"
+          Copy-Item "client\config.json" "OquvchiPanel\config.json"
 
-          $bat = @'
-          @echo off
-          cd /d "%~dp0"
-          set PYTHONPATH=%~dp0
-          start "" python\python.exe run_student.py
-          '@
-          Set-Content -Path "OquvchiPanel\OquvchiPanel - Ishga tushirish.bat" -Value $bat -Encoding UTF8
+          $bat = "@echo off`r`ncd /d ""%~dp0""`r`nset PYTHONPATH=%~dp0`r`nstart `"`" python\python.exe run_student.py`r`n"
+          Set-Content -Path "OquvchiPanel\OquvchiPanel.bat" -Value $bat -Encoding ASCII
 
           Compress-Archive -Path "OquvchiPanel" -DestinationPath "OquvchiPanel-Windows.zip" -Force
 
       - name: O'qituvchi bundle yasash
         run: |
-          New-Item -ItemType Directory -Path "OqituvchiPanel" -Force
-          Copy-Item -Recurse "python-embed\*" "OqituvchiPanel\python"
-          Copy-Item -Recurse "client\app" "OqituvchiPanel\app"
-          Copy-Item "client\run_client.py" "OqituvchiPanel\"
-          Copy-Item "client\config.json" "OqituvchiPanel\"
+          New-Item -ItemType Directory -Path "OqituvchiPanel\python" -Force
+          New-Item -ItemType Directory -Path "OqituvchiPanel\app" -Force
+          Copy-Item -Recurse "python-embed\*" "OqituvchiPanel\python\"
+          Copy-Item -Recurse "client\app\*" "OqituvchiPanel\app\"
+          Copy-Item "client\run_client.py" "OqituvchiPanel\run_client.py"
+          Copy-Item "client\config.json" "OqituvchiPanel\config.json"
 
-          $bat = @'
-          @echo off
-          cd /d "%~dp0"
-          set PYTHONPATH=%~dp0
-          start "" python\python.exe run_client.py
-          '@
-          Set-Content -Path "OqituvchiPanel\OqituvchiPanel - Ishga tushirish.bat" -Value $bat -Encoding UTF8
+          $bat = "@echo off`r`ncd /d ""%~dp0""`r`nset PYTHONPATH=%~dp0`r`nstart `"`" python\python.exe run_client.py`r`n"
+          Set-Content -Path "OqituvchiPanel\OqituvchiPanel.bat" -Value $bat -Encoding ASCII
 
           Compress-Archive -Path "OqituvchiPanel" -DestinationPath "OqituvchiPanel-Windows.zip" -Force
 
