@@ -78,8 +78,8 @@ jobs:
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            "Name: `"{commondesktop}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
-            "Name: `"{group}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{userdesktop}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{userprograms}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
             "",
             "[Run]",
             "Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
@@ -111,8 +111,8 @@ jobs:
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            "Name: `"{commondesktop}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
-            "Name: `"{group}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{userdesktop}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{userprograms}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
             "",
             "[Run]",
             "Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
