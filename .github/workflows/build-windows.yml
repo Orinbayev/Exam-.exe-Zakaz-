@@ -1,4 +1,4 @@
-name: Windows Installer yasash
+name: Windows Bundle yasash
 
 on:
   push:
@@ -16,51 +16,75 @@ jobs:
       - name: Kodni yuklab olish
         uses: actions/checkout@v4
 
-      - name: Python 3.11 o'rnatish
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11.9"
-
-      - name: Kutubxonalarni o'rnatish
-        working-directory: client
+      - name: Python 3.11 embedded yuklab olish
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install pyinstaller==6.3.0
-          pip install PyQt6==6.6.1 PyQt6-Qt6==6.6.1 PyQt6-sip==13.6.0
-          pip install -r requirements.txt
+          $url = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+          Invoke-WebRequest -Uri $url -OutFile "python-embed.zip"
+          Expand-Archive "python-embed.zip" -DestinationPath "python-embed"
 
-      - name: O'quvchi .exe yasash
-        working-directory: client
-        run: pyinstaller --clean --noconfirm student_win.spec
-
-      - name: O'qituvchi .exe yasash
-        working-directory: client
-        run: pyinstaller --clean --noconfirm teacher_win.spec
-
-      - name: Installer papkasi yaratish
-        working-directory: client
-        run: New-Item -ItemType Directory -Force -Path installer
-
-      - name: O'quvchi installer yasash (Inno Setup)
-        working-directory: client
+      - name: Embedded Python ga pip va site-packages yoqish
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" student_setup.iss
+          $pthFile = Get-ChildItem "python-embed" -Filter "*.pth" | Select-Object -First 1
+          (Get-Content $pthFile.FullName) -replace '#import site', 'import site' | Set-Content $pthFile.FullName
+          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "get-pip.py"
+          .\python-embed\python.exe get-pip.py --no-warn-script-location -q
 
-      - name: O'qituvchi installer yasash (Inno Setup)
-        working-directory: client
+      - name: Kutubxonalar o'rnatish
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" teacher_setup.iss
+          .\python-embed\python.exe -m pip install `
+            PyQt6==6.6.0 `
+            PyQt6-Charts==6.6.0 `
+            requests==2.31.0 `
+            matplotlib==3.8.0 `
+            openpyxl==3.1.2 `
+            --no-warn-script-location -q
 
-      - name: O'quvchi Setup.exe yuklash
+      - name: O'quvchi bundle yasash
+        run: |
+          New-Item -ItemType Directory -Path "OquvchiPanel" -Force
+          Copy-Item -Recurse "python-embed\*" "OquvchiPanel\python"
+          Copy-Item -Recurse "client\app" "OquvchiPanel\app"
+          Copy-Item "client\run_student.py" "OquvchiPanel\"
+          Copy-Item "client\config.json" "OquvchiPanel\"
+
+          $bat = @'
+          @echo off
+          cd /d "%~dp0"
+          set PYTHONPATH=%~dp0
+          start "" python\python.exe run_student.py
+          '@
+          Set-Content -Path "OquvchiPanel\OquvchiPanel - Ishga tushirish.bat" -Value $bat -Encoding UTF8
+
+          Compress-Archive -Path "OquvchiPanel" -DestinationPath "OquvchiPanel-Windows.zip" -Force
+
+      - name: O'qituvchi bundle yasash
+        run: |
+          New-Item -ItemType Directory -Path "OqituvchiPanel" -Force
+          Copy-Item -Recurse "python-embed\*" "OqituvchiPanel\python"
+          Copy-Item -Recurse "client\app" "OqituvchiPanel\app"
+          Copy-Item "client\run_client.py" "OqituvchiPanel\"
+          Copy-Item "client\config.json" "OqituvchiPanel\"
+
+          $bat = @'
+          @echo off
+          cd /d "%~dp0"
+          set PYTHONPATH=%~dp0
+          start "" python\python.exe run_client.py
+          '@
+          Set-Content -Path "OqituvchiPanel\OqituvchiPanel - Ishga tushirish.bat" -Value $bat -Encoding UTF8
+
+          Compress-Archive -Path "OqituvchiPanel" -DestinationPath "OqituvchiPanel-Windows.zip" -Force
+
+      - name: O'quvchi artifact yuklash
         uses: actions/upload-artifact@v4
         with:
-          name: OquvchiPanel-Setup
-          path: client/installer/OquvchiPanel-Setup.exe
+          name: OquvchiPanel-Windows
+          path: OquvchiPanel-Windows.zip
           retention-days: 30
 
-      - name: O'qituvchi Setup.exe yuklash
+      - name: O'qituvchi artifact yuklash
         uses: actions/upload-artifact@v4
         with:
-          name: OqituvchiPanel-Setup
-          path: client/installer/OqituvchiPanel-Setup.exe
+          name: OqituvchiPanel-Windows
+          path: OqituvchiPanel-Windows.zip
           retention-days: 30
