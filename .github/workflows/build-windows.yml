@@ -17,17 +17,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Python 3.11 embedded yuklab olish
+        shell: pwsh
         run: |
           Invoke-WebRequest "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" -OutFile "py.zip"
           Expand-Archive "py.zip" -DestinationPath "pyembed"
 
       - name: pip va site-packages yoqish
+        shell: pwsh
         run: |
           (Get-Content "pyembed\python311._pth") -replace '#import site','import site' | Set-Content "pyembed\python311._pth"
           Invoke-WebRequest "https://bootstrap.pypa.io/get-pip.py" -OutFile "get-pip.py"
           .\pyembed\python.exe get-pip.py -q --no-warn-script-location
 
       - name: Kutubxonalar o'rnatish
+        shell: pwsh
         run: |
           .\pyembed\python.exe -m pip install -q --no-warn-script-location PyQt6==6.6.0 PyQt6-Charts==6.6.0 requests==2.31.0 openpyxl==3.1.2
 
@@ -35,53 +38,33 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "dist\OquvchiPanel\python" -Force | Out-Null
-          New-Item -ItemType Directory -Path "dist\OquvchiPanel\app"    -Force | Out-Null
-          Copy-Item -Recurse "pyembed\*"     "dist\OquvchiPanel\python\"
-          Copy-Item -Recurse "client\app\*"  "dist\OquvchiPanel\app\"
-          Copy-Item "client\run_student.py"  "dist\OquvchiPanel\run_student.py"
-          Copy-Item "client\config.json"     "dist\OquvchiPanel\config.json"
-          $lines = @(
-            'Set sh = CreateObject("WScript.Shell")',
-            'p = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))',
-            'sh.CurrentDirectory = p',
-            'sh.Environment("Process")("PYTHONPATH") = p',
-            'exe = Chr(34) & p & "python\pythonw.exe" & Chr(34)',
-            'scr = Chr(34) & p & "run_student.py" & Chr(34)',
-            'sh.Run exe & " " & scr, 0, False'
-          )
-          $lines | Set-Content "dist\OquvchiPanel\OquvchiPanel.vbs" -Encoding ASCII
+          New-Item -ItemType Directory -Path "dist\OquvchiPanel\app" -Force | Out-Null
+          Copy-Item -Recurse "pyembed\*" "dist\OquvchiPanel\python\"
+          Copy-Item -Recurse "client\app\*" "dist\OquvchiPanel\app\"
+          Copy-Item "client\run_student.py" "dist\OquvchiPanel\"
+          Copy-Item "client\config.json" "dist\OquvchiPanel\"
 
       - name: O'qituvchi bundle yasash
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "dist\OqituvchiPanel\python" -Force | Out-Null
-          New-Item -ItemType Directory -Path "dist\OqituvchiPanel\app"    -Force | Out-Null
-          Copy-Item -Recurse "pyembed\*"     "dist\OqituvchiPanel\python\"
-          Copy-Item -Recurse "client\app\*"  "dist\OqituvchiPanel\app\"
-          Copy-Item "client\run_client.py"   "dist\OqituvchiPanel\run_client.py"
-          Copy-Item "client\config.json"     "dist\OqituvchiPanel\config.json"
-          $lines = @(
-            'Set sh = CreateObject("WScript.Shell")',
-            'p = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))',
-            'sh.CurrentDirectory = p',
-            'sh.Environment("Process")("PYTHONPATH") = p',
-            'exe = Chr(34) & p & "python\pythonw.exe" & Chr(34)',
-            'scr = Chr(34) & p & "run_client.py" & Chr(34)',
-            'sh.Run exe & " " & scr, 0, False'
-          )
-          $lines | Set-Content "dist\OqituvchiPanel\OqituvchiPanel.vbs" -Encoding ASCII
+          New-Item -ItemType Directory -Path "dist\OqituvchiPanel\app" -Force | Out-Null
+          Copy-Item -Recurse "pyembed\*" "dist\OqituvchiPanel\python\"
+          Copy-Item -Recurse "client\app\*" "dist\OqituvchiPanel\app\"
+          Copy-Item "client\run_client.py" "dist\OqituvchiPanel\"
+          Copy-Item "client\config.json" "dist\OqituvchiPanel\"
 
-      - name: O'quvchi Setup.exe yasash (Inno Setup)
+      - name: O'quvchi Setup.exe yasash
         shell: pwsh
         run: |
           $src = (Resolve-Path "dist\OquvchiPanel").Path
           $out = (Resolve-Path ".").Path
-          $lines = @(
+          $iss = @(
             "[Setup]",
-            "AppName=Smart Exam - Oquvchi Paneli",
+            "AppName=Smart Exam Oquvchi",
             "AppVersion=1.0",
             "AppPublisher=Smart Exam System",
-            "DefaultDirName={autopf}\SmartExam\OquvchiPanel",
+            "DefaultDirName={localappdata}\SmartExam\OquvchiPanel",
             "DefaultGroupName=Smart Exam",
             "OutputDir=$out",
             "OutputBaseFilename=OquvchiPanel-Setup",
@@ -89,31 +72,32 @@ jobs:
             "SolidCompression=yes",
             "WizardStyle=modern",
             "DisableProgramGroupPage=yes",
+            "PrivilegesRequired=lowest",
             "",
             "[Files]",
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            "Name: `"{commondesktop}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.vbs`"",
-            "Name: `"{group}\Oquvchi Paneli`";         Filename: `"{app}\OquvchiPanel.vbs`"",
+            "Name: `"{commondesktop}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{group}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
             "",
             "[Run]",
-            "Filename: `"{app}\OquvchiPanel.vbs`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent shellexec"
+            "Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
-          $lines | Set-Content "student.iss" -Encoding UTF8
+          $iss | Set-Content "student.iss" -Encoding UTF8
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "student.iss"
 
-      - name: O'qituvchi Setup.exe yasash (Inno Setup)
+      - name: O'qituvchi Setup.exe yasash
         shell: pwsh
         run: |
           $src = (Resolve-Path "dist\OqituvchiPanel").Path
           $out = (Resolve-Path ".").Path
-          $lines = @(
+          $iss = @(
             "[Setup]",
-            "AppName=Smart Exam - Oqituvchi Paneli",
+            "AppName=Smart Exam Oqituvchi",
             "AppVersion=1.0",
             "AppPublisher=Smart Exam System",
-            "DefaultDirName={autopf}\SmartExam\OqituvchiPanel",
+            "DefaultDirName={localappdata}\SmartExam\OqituvchiPanel",
             "DefaultGroupName=Smart Exam",
             "OutputDir=$out",
             "OutputBaseFilename=OqituvchiPanel-Setup",
@@ -121,18 +105,19 @@ jobs:
             "SolidCompression=yes",
             "WizardStyle=modern",
             "DisableProgramGroupPage=yes",
+            "PrivilegesRequired=lowest",
             "",
             "[Files]",
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            "Name: `"{commondesktop}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.vbs`"",
-            "Name: `"{group}\Oqituvchi Paneli`";         Filename: `"{app}\OqituvchiPanel.vbs`"",
+            "Name: `"{commondesktop}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{group}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
             "",
             "[Run]",
-            "Filename: `"{app}\OqituvchiPanel.vbs`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent shellexec"
+            "Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
-          $lines | Set-Content "teacher.iss" -Encoding UTF8
+          $iss | Set-Content "teacher.iss" -Encoding UTF8
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "teacher.iss"
 
       - name: O'quvchi Setup.exe yuklash
