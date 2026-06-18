@@ -16,59 +16,34 @@ jobs:
       - name: Kodni yuklab olish
         uses: actions/checkout@v4
 
-      - name: Python 3.11 embedded yuklab olish
-        shell: pwsh
-        run: |
-          Invoke-WebRequest "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" -OutFile "py.zip"
-          Expand-Archive "py.zip" -DestinationPath "pyembed"
-
-      - name: pip va site-packages yoqish
-        shell: pwsh
-        run: |
-          # site-packages yoqish va app root (..) path ga qo'shish
-          $pth = Get-Content "pyembed\python311._pth"
-          $pth = $pth -replace '#import site','import site'
-          $pth += ".."
-          $pth | Set-Content "pyembed\python311._pth"
-          # sitecustomize.py: app root ni sys.path ga qo'shish
-          @(
-            "import sys, os",
-            "_app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))",
-            "if _app_root not in sys.path:",
-            "    sys.path.insert(0, _app_root)"
-          ) | Set-Content "pyembed\sitecustomize.py" -Encoding ASCII
-          Invoke-WebRequest "https://bootstrap.pypa.io/get-pip.py" -OutFile "get-pip.py"
-          .\pyembed\python.exe get-pip.py -q --no-warn-script-location
+      - name: Python 3.11 o'rnatish
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
 
       - name: Kutubxonalar o'rnatish
+        working-directory: client
         shell: pwsh
         run: |
-          .\pyembed\python.exe -m pip install -q --no-warn-script-location PyQt6==6.6.0 PyQt6-Charts==6.6.0 requests==2.31.0 openpyxl==3.1.2
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pyinstaller==6.3.0
+          pip install PyQt6==6.6.0 PyQt6-Charts==6.6.0 PyQt6-sip==13.6.0
+          pip install requests==2.31.0 openpyxl==3.1.2
 
-      - name: O'quvchi bundle yasash
+      - name: O'quvchi .exe yasash
+        working-directory: client
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path "dist\OquvchiPanel\python" -Force | Out-Null
-          New-Item -ItemType Directory -Path "dist\OquvchiPanel\app" -Force | Out-Null
-          Copy-Item -Recurse "pyembed\*" "dist\OquvchiPanel\python\"
-          Copy-Item -Recurse "client\app\*" "dist\OquvchiPanel\app\"
-          Copy-Item "client\run_student.py" "dist\OquvchiPanel\"
-          Copy-Item "client\config.json" "dist\OquvchiPanel\"
+        run: pyinstaller --clean --noconfirm student_win.spec
 
-      - name: O'qituvchi bundle yasash
+      - name: O'qituvchi .exe yasash
+        working-directory: client
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path "dist\OqituvchiPanel\python" -Force | Out-Null
-          New-Item -ItemType Directory -Path "dist\OqituvchiPanel\app" -Force | Out-Null
-          Copy-Item -Recurse "pyembed\*" "dist\OqituvchiPanel\python\"
-          Copy-Item -Recurse "client\app\*" "dist\OqituvchiPanel\app\"
-          Copy-Item "client\run_client.py" "dist\OqituvchiPanel\"
-          Copy-Item "client\config.json" "dist\OqituvchiPanel\"
+        run: pyinstaller --clean --noconfirm teacher_win.spec
 
-      - name: O'quvchi Setup.exe yasash
+      - name: O'quvchi Setup.exe yasash (Inno Setup)
         shell: pwsh
         run: |
-          $src = (Resolve-Path "dist\OquvchiPanel").Path
+          $src = (Resolve-Path "client\dist\OquvchiPanel").Path
           $out = (Resolve-Path ".").Path
           $iss = @(
             "[Setup]",
@@ -89,19 +64,19 @@ jobs:
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            "Name: `"{userdesktop}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
-            "Name: `"{userprograms}\Oquvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{userdesktop}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.exe`"",
+            "Name: `"{userprograms}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.exe`"",
             "",
             "[Run]",
-            "Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_student.py`"`"`"; WorkingDir: `"{app}`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
+            "Filename: `"{app}\OquvchiPanel.exe`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
           $iss | Set-Content "student.iss" -Encoding UTF8
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "student.iss"
 
-      - name: O'qituvchi Setup.exe yasash
+      - name: O'qituvchi Setup.exe yasash (Inno Setup)
         shell: pwsh
         run: |
-          $src = (Resolve-Path "dist\OqituvchiPanel").Path
+          $src = (Resolve-Path "client\dist\OqituvchiPanel").Path
           $out = (Resolve-Path ".").Path
           $iss = @(
             "[Setup]",
@@ -122,11 +97,11 @@ jobs:
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
             "",
             "[Icons]",
-            "Name: `"{userdesktop}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
-            "Name: `"{userprograms}\Oqituvchi Paneli`"; Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"",
+            "Name: `"{userdesktop}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.exe`"",
+            "Name: `"{userprograms}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.exe`"",
             "",
             "[Run]",
-            "Filename: `"{app}\python\pythonw.exe`"; Parameters: `"`"`"{app}\run_client.py`"`"`"; WorkingDir: `"{app}`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
+            "Filename: `"{app}\OqituvchiPanel.exe`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
           $iss | Set-Content "teacher.iss" -Encoding UTF8
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "teacher.iss"

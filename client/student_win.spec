@@ -1,30 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-block_cipher = None
+qt_d, qt_b, qt_h = collect_all('PyQt6')
 
 a = Analysis(
     ['run_student.py'],
     pathex=['.'],
-    binaries=[],
-    datas=[
+    binaries=qt_b,
+    datas=qt_d + [
         ('app/assets', 'assets'),
         ('config.json', '.'),
     ],
-    hiddenimports=[
+    hiddenimports=qt_h + collect_submodules('PyQt6') + [
         'pkgutil',
         'pkg_resources',
         'importlib.metadata',
         'importlib.resources',
-        'PyQt6',
-        'PyQt6.QtCore',
-        'PyQt6.QtGui',
-        'PyQt6.QtWidgets',
-        'PyQt6.QtMultimedia',
-        'PyQt6.sip',
         'app',
         'app.sound_player',
         'app.api_client',
         'app.config',
+        'app.styles',
         'app.windows',
         'app.windows.student',
         'app.windows.student.info_window',
@@ -32,16 +28,12 @@ a = Analysis(
         'app.windows.student.result_window',
     ],
     hookspath=[],
-    hooksconfig={},
     runtime_hooks=[],
     excludes=['tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy'],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure, a.zipped_data)
 
 exe = EXE(
     pyz,
@@ -50,15 +42,9 @@ exe = EXE(
     exclude_binaries=True,
     name='OquvchiPanel',
     debug=False,
-    bootloader_ignore_signals=False,
     strip=False,
     upx=False,
     console=False,
-    disable_windowed_traceback=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon=None,
 )
 
 coll = COLLECT(
@@ -68,6 +54,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    upx_exclude=[],
     name='OquvchiPanel',
 )
