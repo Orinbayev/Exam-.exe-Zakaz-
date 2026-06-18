@@ -222,7 +222,7 @@ class LoginWindow(QMainWindow):
 
         # Server IP
         srv_w, self.server_input = _input_block("🌐  Server IP manzili")
-        self.server_input.setPlaceholderText("http://192.168.1.100:8001")
+        self.server_input.setPlaceholderText("https://exam-exe-zakaz-production.up.railway.app")
         self.server_input.setText(Config.server_url())
         cl.addWidget(srv_w)
 
