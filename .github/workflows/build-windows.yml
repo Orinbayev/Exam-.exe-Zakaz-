@@ -30,6 +30,11 @@ jobs:
           pip install PyQt6==6.6.0 PyQt6-Charts==6.6.0 PyQt6-sip==13.6.0
           pip install requests==2.31.0 openpyxl==3.1.2
 
+      - name: Visual C++ Redistributable yuklab olish
+        shell: pwsh
+        run: |
+          Invoke-WebRequest "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
+
       - name: O'quvchi .exe yasash
         working-directory: client
         shell: pwsh
@@ -44,6 +49,7 @@ jobs:
         shell: pwsh
         run: |
           $src = (Resolve-Path "client\dist\OquvchiPanel").Path
+          $vc  = (Resolve-Path "vc_redist.x64.exe").Path
           $out = (Resolve-Path ".").Path
           $iss = @(
             "[Setup]",
@@ -62,12 +68,14 @@ jobs:
             "",
             "[Files]",
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
+            "Source: `"$vc`"; DestDir: `"{tmp}`"; Flags: deleteafterinstall",
             "",
             "[Icons]",
             "Name: `"{userdesktop}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.exe`"",
             "Name: `"{userprograms}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.exe`"",
             "",
             "[Run]",
+            "Filename: `"{tmp}\vc_redist.x64.exe`"; Parameters: `"/install /quiet /norestart`"; StatusMsg: `"Visual C++ o'rnatilmoqda...`"; Flags: waituntilterminated skipifdoesntexist",
             "Filename: `"{app}\OquvchiPanel.exe`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
           $iss | Set-Content "student.iss" -Encoding UTF8
@@ -77,6 +85,7 @@ jobs:
         shell: pwsh
         run: |
           $src = (Resolve-Path "client\dist\OqituvchiPanel").Path
+          $vc  = (Resolve-Path "vc_redist.x64.exe").Path
           $out = (Resolve-Path ".").Path
           $iss = @(
             "[Setup]",
@@ -95,12 +104,14 @@ jobs:
             "",
             "[Files]",
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
+            "Source: `"$vc`"; DestDir: `"{tmp}`"; Flags: deleteafterinstall",
             "",
             "[Icons]",
             "Name: `"{userdesktop}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.exe`"",
             "Name: `"{userprograms}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.exe`"",
             "",
             "[Run]",
+            "Filename: `"{tmp}\vc_redist.x64.exe`"; Parameters: `"/install /quiet /norestart`"; StatusMsg: `"Visual C++ o'rnatilmoqda...`"; Flags: waituntilterminated skipifdoesntexist",
             "Filename: `"{app}\OqituvchiPanel.exe`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
           $iss | Set-Content "teacher.iss" -Encoding UTF8
