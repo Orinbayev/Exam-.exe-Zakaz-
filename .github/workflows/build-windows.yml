@@ -21,13 +21,20 @@ jobs:
         with:
           python-version: "3.11.9"
 
+      # -----------------------------------------------------------------------
+      # PyQt6 6.4.2 — Windows 10/11 da eng barqaror versiya.
+      # 6.6.x da Qt6Core.dll yangi Windows API funktsiyalarini ishlatadi,
+      # bu esa eski yoki to'liq yangilanmagan Windows 10 da "procedure not found"
+      # xatoligini keltirib chiqaradi.
+      # -----------------------------------------------------------------------
       - name: Kutubxonalar o'rnatish
         working-directory: client
         shell: pwsh
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.11.1
-          pip install PyQt6==6.6.0 PyQt6-Charts==6.6.0 PyQt6-sip==13.6.0
+          pip install PyQt6==6.4.2 "PyQt6-Qt6==6.4.2" "PyQt6-sip==13.4.0"
+          pip install "PyQt6-Charts==6.4.2"
           pip install requests==2.31.0 openpyxl==3.1.2
 
       - name: O'quvchi .exe yasash
@@ -41,10 +48,46 @@ jobs:
         run: pyinstaller --clean --noconfirm teacher_win.spec
 
       # -----------------------------------------------------------------------
-      # ASOSIY TUZATISH: MSVC runtime DLLlarni to'g'ridan-to'g'ri bundle ichiga
-      # nusxalash. Qt6Core.dll ushbu DLLlarga bog'liq, lekin PyInstaller ularni
-      # avtomatik ko'chirmaydi. Natijada boshqa kompyuterlarda xatolik yuz beradi:
-      #   "DLL load failed while importing QtCore: specified procedure not found"
+      # KRITIK TUZATISH 1: python3.dll ni bundle ichiga qo'shish.
+      # PyQt6 pyd fayllar Python Stable ABI (python3.dll) ga bog'liq.
+      # Target mashinada python3.dll bo'lmasa yoki boshqa versiyasi bo'lsa
+      # "DLL load failed: The specified procedure could not be found" xatosi chiqadi.
+      # -----------------------------------------------------------------------
+      - name: python3.dll ni bundle ichiga ko'chirish
+        shell: pwsh
+        run: |
+          $pythonExe = (python -c "import sys; print(sys.executable)")
+          $pythonDir = Split-Path $pythonExe -Parent
+          $py3dll    = Join-Path $pythonDir "python3.dll"
+
+          if (-not (Test-Path $py3dll)) {
+            Write-Host "python3.dll Python dir da topilmadi, System32 da qidirilmoqda..."
+            $py3dll = Join-Path "$env:SystemRoot\System32" "python3.dll"
+          }
+
+          $targets = @(
+            "client\dist\OquvchiPanel\_internal",
+            "client\dist\OquvchiPanel",
+            "client\dist\OqituvchiPanel\_internal",
+            "client\dist\OqituvchiPanel"
+          )
+
+          if (Test-Path $py3dll) {
+            foreach ($t in $targets) {
+              if (Test-Path $t) {
+                Copy-Item $py3dll -Destination $t -Force
+                Write-Host "[OK] python3.dll -> $t"
+              }
+            }
+          } else {
+            Write-Host "[WARN] python3.dll topilmadi — PyInstaller o'zi qo'shgan bo'lishi mumkin"
+          }
+
+      # -----------------------------------------------------------------------
+      # KRITIK TUZATISH 2: MSVC runtime DLLlarni bundle ichiga qo'shish.
+      # Qt6Core.dll msvcp140.dll va vcruntime140_1.dll ga bog'liq.
+      # Target mashinada VC++ 2019+ Redistributable o'rnatilmagan bo'lishi mumkin.
+      # Admin huquq talab qilmaslik uchun DLLlarni to'g'ridan-to'g'ri bundlelaymiz.
       # -----------------------------------------------------------------------
       - name: MSVC runtime DLLlarni bundle ichiga ko'chirish
         shell: pwsh
@@ -60,43 +103,27 @@ jobs:
           )
 
           $bundles = @(
-            @{
-              name     = "OquvchiPanel"
-              root     = "client\dist\OquvchiPanel"
-              internal = "client\dist\OquvchiPanel\_internal"
-            },
-            @{
-              name     = "OqituvchiPanel"
-              root     = "client\dist\OqituvchiPanel"
-              internal = "client\dist\OqituvchiPanel\_internal"
-            }
+            @{ root = "client\dist\OquvchiPanel";   internal = "client\dist\OquvchiPanel\_internal"   },
+            @{ root = "client\dist\OqituvchiPanel"; internal = "client\dist\OqituvchiPanel\_internal" }
           )
 
           foreach ($b in $bundles) {
             if (-not (Test-Path $b.root)) {
-              Write-Error "Bundle topilmadi: $($b.root)"
-              exit 1
+              Write-Error "Bundle topilmadi: $($b.root)"; exit 1
             }
-            Write-Host ""
-            Write-Host "=== $($b.name) uchun DLLlar ==="
             foreach ($dll in $dlls) {
               $src = Join-Path $sys32 $dll
               if (Test-Path $src) {
-                # _internal/ papkasi (PyInstaller 6.x asosiy joy)
                 if (Test-Path $b.internal) {
                   Copy-Item $src -Destination $b.internal -Force
-                  Write-Host "  [OK] $dll -> _internal\"
                 }
-                # Ildiz papkasi ham (exe yonida — qo'shimcha kafolat)
                 Copy-Item $src -Destination $b.root -Force
-                Write-Host "  [OK] $dll -> root\"
+                Write-Host "[OK] $dll"
               } else {
-                Write-Host "  [SKIP] $dll (tizimda yo'q)"
+                Write-Host "[SKIP] $dll (tizimda yo'q)"
               }
             }
           }
-          Write-Host ""
-          Write-Host "MSVC DLLlar muvaffaqiyatli ko'chirildi."
 
       - name: O'quvchi Setup.exe yasash (Inno Setup)
         shell: pwsh

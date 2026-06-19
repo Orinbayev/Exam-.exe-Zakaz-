@@ -28,7 +28,7 @@ a = Analysis(
         'app.windows.student.result_window',
     ],
     hookspath=[],
-    runtime_hooks=[],
+    runtime_hooks=['pyqt6_runtime_hook.py'],
     excludes=['tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy'],
     noarchive=False,
 )
@@ -45,6 +45,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    uac_admin=False,
 )
 
 coll = COLLECT(
