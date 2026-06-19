@@ -26,14 +26,9 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install pyinstaller==6.3.0
+          pip install pyinstaller==6.11.1
           pip install PyQt6==6.6.0 PyQt6-Charts==6.6.0 PyQt6-sip==13.6.0
           pip install requests==2.31.0 openpyxl==3.1.2
-
-      - name: Visual C++ Redistributable yuklab olish
-        shell: pwsh
-        run: |
-          Invoke-WebRequest "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
 
       - name: O'quvchi .exe yasash
         working-directory: client
@@ -45,11 +40,68 @@ jobs:
         shell: pwsh
         run: pyinstaller --clean --noconfirm teacher_win.spec
 
+      # -----------------------------------------------------------------------
+      # ASOSIY TUZATISH: MSVC runtime DLLlarni to'g'ridan-to'g'ri bundle ichiga
+      # nusxalash. Qt6Core.dll ushbu DLLlarga bog'liq, lekin PyInstaller ularni
+      # avtomatik ko'chirmaydi. Natijada boshqa kompyuterlarda xatolik yuz beradi:
+      #   "DLL load failed while importing QtCore: specified procedure not found"
+      # -----------------------------------------------------------------------
+      - name: MSVC runtime DLLlarni bundle ichiga ko'chirish
+        shell: pwsh
+        run: |
+          $sys32 = "$env:SystemRoot\System32"
+          $dlls = @(
+            "msvcp140.dll",
+            "msvcp140_1.dll",
+            "msvcp140_2.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll",
+            "concrt140.dll"
+          )
+
+          $bundles = @(
+            @{
+              name     = "OquvchiPanel"
+              root     = "client\dist\OquvchiPanel"
+              internal = "client\dist\OquvchiPanel\_internal"
+            },
+            @{
+              name     = "OqituvchiPanel"
+              root     = "client\dist\OqituvchiPanel"
+              internal = "client\dist\OqituvchiPanel\_internal"
+            }
+          )
+
+          foreach ($b in $bundles) {
+            if (-not (Test-Path $b.root)) {
+              Write-Error "Bundle topilmadi: $($b.root)"
+              exit 1
+            }
+            Write-Host ""
+            Write-Host "=== $($b.name) uchun DLLlar ==="
+            foreach ($dll in $dlls) {
+              $src = Join-Path $sys32 $dll
+              if (Test-Path $src) {
+                # _internal/ papkasi (PyInstaller 6.x asosiy joy)
+                if (Test-Path $b.internal) {
+                  Copy-Item $src -Destination $b.internal -Force
+                  Write-Host "  [OK] $dll -> _internal\"
+                }
+                # Ildiz papkasi ham (exe yonida — qo'shimcha kafolat)
+                Copy-Item $src -Destination $b.root -Force
+                Write-Host "  [OK] $dll -> root\"
+              } else {
+                Write-Host "  [SKIP] $dll (tizimda yo'q)"
+              }
+            }
+          }
+          Write-Host ""
+          Write-Host "MSVC DLLlar muvaffaqiyatli ko'chirildi."
+
       - name: O'quvchi Setup.exe yasash (Inno Setup)
         shell: pwsh
         run: |
           $src = (Resolve-Path "client\dist\OquvchiPanel").Path
-          $vc  = (Resolve-Path "vc_redist.x64.exe").Path
           $out = (Resolve-Path ".").Path
           $iss = @(
             "[Setup]",
@@ -68,14 +120,12 @@ jobs:
             "",
             "[Files]",
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
-            "Source: `"$vc`"; DestDir: `"{tmp}`"; Flags: deleteafterinstall",
             "",
             "[Icons]",
             "Name: `"{userdesktop}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.exe`"",
             "Name: `"{userprograms}\Oquvchi Paneli`"; Filename: `"{app}\OquvchiPanel.exe`"",
             "",
             "[Run]",
-            "Filename: `"{tmp}\vc_redist.x64.exe`"; Parameters: `"/install /quiet /norestart`"; StatusMsg: `"Visual C++ o'rnatilmoqda...`"; Flags: waituntilterminated skipifdoesntexist",
             "Filename: `"{app}\OquvchiPanel.exe`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
           $iss | Set-Content "student.iss" -Encoding UTF8
@@ -85,7 +135,6 @@ jobs:
         shell: pwsh
         run: |
           $src = (Resolve-Path "client\dist\OqituvchiPanel").Path
-          $vc  = (Resolve-Path "vc_redist.x64.exe").Path
           $out = (Resolve-Path ".").Path
           $iss = @(
             "[Setup]",
@@ -104,14 +153,12 @@ jobs:
             "",
             "[Files]",
             "Source: `"$src\*`"; DestDir: `"{app}`"; Flags: ignoreversion recursesubdirs createallsubdirs",
-            "Source: `"$vc`"; DestDir: `"{tmp}`"; Flags: deleteafterinstall",
             "",
             "[Icons]",
             "Name: `"{userdesktop}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.exe`"",
             "Name: `"{userprograms}\Oqituvchi Paneli`"; Filename: `"{app}\OqituvchiPanel.exe`"",
             "",
             "[Run]",
-            "Filename: `"{tmp}\vc_redist.x64.exe`"; Parameters: `"/install /quiet /norestart`"; StatusMsg: `"Visual C++ o'rnatilmoqda...`"; Flags: waituntilterminated skipifdoesntexist",
             "Filename: `"{app}\OqituvchiPanel.exe`"; Description: `"Dasturni ishga tushirish`"; Flags: nowait postinstall skipifsilent"
           )
           $iss | Set-Content "teacher.iss" -Encoding UTF8
