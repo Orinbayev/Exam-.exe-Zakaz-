@@ -1,14 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
+import os
+
+# SPECPATH = bu spec fayli joylashgan papka (= client/)
+if SPECPATH not in sys.path:
+    sys.path.insert(0, SPECPATH)
+
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 qt_d, qt_b, qt_h = collect_all('PyQt6')
-
-# app paketidagi BARCHA modullarni avtomatik to'plash
 app_mods = collect_submodules('app')
 
 a = Analysis(
     ['run_student.py'],
-    pathex=['.'],
+    pathex=[SPECPATH, '.'],
     binaries=qt_b,
     datas=qt_d + [
         ('app/assets', 'assets'),

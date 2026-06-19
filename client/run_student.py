@@ -13,6 +13,13 @@ else:
 
 os.chdir(base_dir)
 
+# ── PyInstaller MUHIM: barcha modullarni oldindan import qilish ───────────────
+import app.windows.student.info_window   # noqa: F401
+import app.windows.student.exam_window   # noqa: F401
+import app.windows.student.result_window # noqa: F401
+import app.sound_player                  # noqa: F401
+# ─────────────────────────────────────────────────────────────────────────────
+
 from PyQt6.QtWidgets import QApplication
 from app.config import Config
 
@@ -26,7 +33,6 @@ def main():
 
     from app.windows.student.info_window import StudentInfoWindow
     window = StudentInfoWindow()
-    # showMaximized() is called inside __init__
 
     sys.exit(app.exec())
 
