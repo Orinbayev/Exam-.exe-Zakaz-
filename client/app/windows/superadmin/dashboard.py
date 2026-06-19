@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QMessageBox, QDialogButtonBox,
-    QCheckBox, QGroupBox, QTextEdit, QFrame, QSpinBox
+    QCheckBox, QGroupBox, QTextEdit, QFrame, QSpinBox, QToolButton
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -16,60 +16,115 @@ from ...styles import COLORS
 # ── Users Widget ──────────────────────────────────────────────────────────────
 
 class UserDialog(QDialog):
-    def __init__(self, user: dict = None, parent=None):
+    def __init__(self, user: dict = None, parent=None, default_role: str = "teacher"):
         super().__init__(parent)
         self.user = user
-        self.setWindowTitle("Foydalanuvchi qo'shish" if not user else "Foydalanuvchini tahrirlash")
-        self.setMinimumWidth(420)
+        self._default_role = default_role
+        is_edit = bool(user)
+        role_name = "O'qituvchi" if (user or {}).get("role", default_role) == "teacher" else "Admin"
+        if is_edit:
+            self.setWindowTitle(f"✏️  {role_name}ni tahrirlash")
+        else:
+            self.setWindowTitle("👨‍🏫  Yangi o'qituvchi yaratish" if default_role == "teacher"
+                                else "👤  Yangi foydalanuvchi yaratish")
+        self.setMinimumWidth(460)
         self._setup_ui()
         if user:
             self._fill_data(user)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setSpacing(14)
+        layout.setContentsMargins(24, 20, 24, 20)
 
         form = QFormLayout()
         form.setSpacing(10)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.username_input = QLineEdit()
-        self.username_input.setPlaceholderText("username (lotin harflar, raqamlar)")
-        form.addRow("Username *:", self.username_input)
+        self.username_input.setPlaceholderText("lotin harflar va raqamlar (masalan: teacher1)")
+        self.username_input.setFixedHeight(36)
+        form.addRow("Login *:", self.username_input)
 
         self.fullname_input = QLineEdit()
-        self.fullname_input.setPlaceholderText("Ism Familiya")
+        self.fullname_input.setPlaceholderText("Ism Familiya Sharif")
+        self.fullname_input.setFixedHeight(36)
         form.addRow("To'liq ism *:", self.fullname_input)
 
+        # Parol qatori (ko'rish tugmasi bilan)
+        pwd_row = QHBoxLayout()
+        pwd_row.setSpacing(6)
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setPlaceholderText("Parol kiriting")
-        form.addRow("Parol *:", self.password_input)
+        self.password_input.setPlaceholderText("Parol kiriting (kamida 4 ta belgi)")
+        self.password_input.setFixedHeight(36)
+        eye_btn = QToolButton()
+        eye_btn.setText("👁")
+        eye_btn.setFixedSize(36, 36)
+        eye_btn.setCheckable(True)
+        eye_btn.setToolTip("Parolni ko'rsatish / yashirish")
+        eye_btn.toggled.connect(
+            lambda on: self.password_input.setEchoMode(
+                QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
+            )
+        )
+        pwd_row.addWidget(self.password_input)
+        pwd_row.addWidget(eye_btn)
+        form.addRow("Parol *:", pwd_row)
+
+        # Parolni tasdiqlash
+        pwd2_row = QHBoxLayout()
+        pwd2_row.setSpacing(6)
+        self.password2_input = QLineEdit()
+        self.password2_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password2_input.setPlaceholderText("Parolni qayta kiriting")
+        self.password2_input.setFixedHeight(36)
+        eye_btn2 = QToolButton()
+        eye_btn2.setText("👁")
+        eye_btn2.setFixedSize(36, 36)
+        eye_btn2.setCheckable(True)
+        eye_btn2.toggled.connect(
+            lambda on: self.password2_input.setEchoMode(
+                QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
+            )
+        )
+        pwd2_row.addWidget(self.password2_input)
+        pwd2_row.addWidget(eye_btn2)
+        form.addRow("Parol (tasdiqlash):", pwd2_row)
 
         self.role_combo = QComboBox()
-        self.role_combo.addItem("O'qituvchi", "teacher")
-        self.role_combo.addItem("Super Admin", "superadmin")
+        self.role_combo.addItem("👨‍🏫  O'qituvchi", "teacher")
+        self.role_combo.addItem("🔑  Super Admin", "superadmin")
+        self.role_combo.setFixedHeight(36)
+        if self._default_role == "superadmin":
+            self.role_combo.setCurrentIndex(1)
         form.addRow("Rol:", self.role_combo)
 
         self.telegram_input = QLineEdit()
         self.telegram_input.setPlaceholderText("Telegram chat ID (ixtiyoriy)")
+        self.telegram_input.setFixedHeight(36)
         form.addRow("Telegram ID:", self.telegram_input)
 
-        self.active_check = QCheckBox("Faol")
+        self.active_check = QCheckBox("Faol (tizimga kira oladi)")
         self.active_check.setChecked(True)
         form.addRow("Holat:", self.active_check)
 
         layout.addLayout(form)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self._validate_and_accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
+        # Tahrirlash rejimida username o'zgartirilmaydi
         if self.user:
             self.username_input.setEnabled(False)
             self.password_input.setPlaceholderText("Bo'sh qoldirsa parol o'zgarmaydi")
+            self.password2_input.setPlaceholderText("Bo'sh qoldirsa parol o'zgarmaydi")
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("✅  Saqlash")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Bekor qilish")
+        buttons.accepted.connect(self._validate_and_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
 
     def _fill_data(self, user: dict):
         self.username_input.setText(user.get("username", ""))
@@ -81,13 +136,26 @@ class UserDialog(QDialog):
 
     def _validate_and_accept(self):
         if not self.user and not self.username_input.text().strip():
-            QMessageBox.warning(self, "Xato", "Username bo'sh bo'lishi mumkin emas!")
+            QMessageBox.warning(self, "⚠ Xato", "Login (username) bo'sh bo'lishi mumkin emas!")
+            self.username_input.setFocus()
             return
         if not self.fullname_input.text().strip():
-            QMessageBox.warning(self, "Xato", "To'liq ism bo'sh bo'lishi mumkin emas!")
+            QMessageBox.warning(self, "⚠ Xato", "To'liq ism bo'sh bo'lishi mumkin emas!")
+            self.fullname_input.setFocus()
             return
-        if not self.user and not self.password_input.text():
-            QMessageBox.warning(self, "Xato", "Parol bo'sh bo'lishi mumkin emas!")
+        pwd = self.password_input.text()
+        pwd2 = self.password2_input.text()
+        if not self.user and not pwd:
+            QMessageBox.warning(self, "⚠ Xato", "Parol kiritish shart!")
+            self.password_input.setFocus()
+            return
+        if pwd and len(pwd) < 4:
+            QMessageBox.warning(self, "⚠ Xato", "Parol kamida 4 ta belgidan iborat bo'lishi kerak!")
+            self.password_input.setFocus()
+            return
+        if pwd and pwd != pwd2:
+            QMessageBox.warning(self, "⚠ Xato", "Parollar mos kelmadi!\nIkkala maydonga bir xil parol kiriting.")
+            self.password2_input.setFocus()
             return
         self.accept()
 
@@ -118,23 +186,36 @@ class UsersWidget(QWidget):
         layout.setSpacing(12)
 
         toolbar = QHBoxLayout()
-        title = QLabel("👥 Foydalanuvchilar")
+        title = QLabel("👥  Foydalanuvchilar boshqaruvi")
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
 
-        add_btn = QPushButton("+ Qo'shish")
-        add_btn.setObjectName("success")
-        add_btn.clicked.connect(self._add_user)
+        add_teacher_btn = QPushButton("👨‍🏫  O'qituvchi qo'shish")
+        add_teacher_btn.setObjectName("success")
+        add_teacher_btn.setFixedHeight(36)
+        add_teacher_btn.setToolTip("Yangi o'qituvchi hisobi yaratish")
+        add_teacher_btn.clicked.connect(self._add_teacher)
+
+        add_admin_btn = QPushButton("🔑  Admin qo'shish")
+        add_admin_btn.setObjectName("secondary")
+        add_admin_btn.setFixedHeight(36)
+        add_admin_btn.clicked.connect(self._add_user)
 
         refresh_btn = QPushButton("🔄")
         refresh_btn.setMaximumWidth(38)
+        refresh_btn.setFixedHeight(36)
         refresh_btn.setObjectName("secondary")
         refresh_btn.clicked.connect(self.refresh)
 
         toolbar.addWidget(title)
         toolbar.addStretch()
-        toolbar.addWidget(add_btn)
+        toolbar.addWidget(add_teacher_btn)
+        toolbar.addWidget(add_admin_btn)
         toolbar.addWidget(refresh_btn)
         layout.addLayout(toolbar)
+
+        hint = QLabel("💡  O'qituvchi yaratib, login va parolini o'qituvchiga bering — tizimga kiradi.")
+        hint.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
+        layout.addWidget(hint)
 
         self.table = QTableWidget()
         self.table.setColumnCount(7)
@@ -205,8 +286,25 @@ class UsersWidget(QWidget):
             btn_layout.addWidget(del_btn)
             self.table.setCellWidget(row, 6, btn_widget)
 
+    def _add_teacher(self):
+        dlg = UserDialog(parent=self, default_role="teacher")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            try:
+                data = dlg.get_data()
+                api.create_user(data)
+                self.refresh()
+                QMessageBox.information(
+                    self, "✅  O'qituvchi yaratildi",
+                    f"O'qituvchi hisobi muvaffaqiyatli yaratildi!\n\n"
+                    f"👤  Login:  {data.get('username', '')}\n"
+                    f"🔒  Parol:  kiritilgan parol\n\n"
+                    f"Ushbu ma'lumotlarni o'qituvchiga bering."
+                )
+            except APIError as e:
+                QMessageBox.critical(self, "Xato", str(e))
+
     def _add_user(self):
-        dlg = UserDialog(parent=self)
+        dlg = UserDialog(parent=self, default_role="superadmin")
         if dlg.exec() == QDialog.DialogCode.Accepted:
             try:
                 api.create_user(dlg.get_data())

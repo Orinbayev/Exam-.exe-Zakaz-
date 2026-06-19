@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem,
     QDialog, QLineEdit, QComboBox, QTextEdit, QInputDialog,
     QMessageBox, QHeaderView, QFrame, QSizePolicy,
-    QScrollArea,
+    QScrollArea, QFileDialog, QProgressDialog,
 )
 from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QFont, QColor
@@ -508,6 +508,13 @@ class FanWidget(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
 
+        _disabled_style = f"""
+            QPushButton:disabled {{
+                background: {COLORS['bg_light']};
+                color: {COLORS['text_secondary']};
+            }}
+        """
+
         self._add_q_btn = QPushButton("＋  Savol qo'shish")
         self._add_q_btn.setStyleSheet(f"""
             QPushButton {{
@@ -516,13 +523,27 @@ class FanWidget(QWidget):
                 padding: 9px 16px; font-size: 13px; font-weight: bold;
             }}
             QPushButton:hover {{ background: {COLORS['success_light']}; }}
-            QPushButton:disabled {{
-                background: {COLORS['bg_light']};
-                color: {COLORS['text_secondary']};
-            }}
-        """)
+        """ + _disabled_style)
         self._add_q_btn.setEnabled(False)
         self._add_q_btn.clicked.connect(self._add_question)
+
+        self._excel_import_btn = QPushButton("📥  Exceldan yuklash")
+        self._excel_import_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['accent']};
+                color: white; border: none; border-radius: 8px;
+                padding: 9px 14px; font-size: 12px; font-weight: bold;
+            }}
+            QPushButton:hover {{ background: {COLORS['accent_light']}; }}
+        """ + _disabled_style)
+        self._excel_import_btn.setEnabled(False)
+        self._excel_import_btn.setToolTip("Exceldan ko'plab savollarni bir vaqtda yuklash")
+        self._excel_import_btn.clicked.connect(self._import_excel)
+
+        self._excel_tpl_btn = QPushButton("📄  Namuna Excel")
+        self._excel_tpl_btn.setObjectName("secondary")
+        self._excel_tpl_btn.setToolTip("To'ldirib yuborish uchun namuna fayl yuklab oling")
+        self._excel_tpl_btn.clicked.connect(self._download_template)
 
         self._show_frozen_btn = QPushButton("❄️  Muzlatilganlarni ko'rsatish")
         self._show_frozen_btn.setObjectName("secondary")
@@ -530,6 +551,8 @@ class FanWidget(QWidget):
         self._show_frozen_btn.clicked.connect(self._toggle_show_frozen)
 
         btn_row.addWidget(self._add_q_btn)
+        btn_row.addWidget(self._excel_import_btn)
+        btn_row.addWidget(self._excel_tpl_btn)
         btn_row.addStretch()
         btn_row.addWidget(self._show_frozen_btn)
         rl.addLayout(btn_row)
@@ -576,6 +599,7 @@ class FanWidget(QWidget):
         self._fan_name = item.data(Qt.ItemDataRole.UserRole + 1)
         self._q_title.setText(f"❓  {self._fan_name} — Savollar")
         self._add_q_btn.setEnabled(True)
+        self._excel_import_btn.setEnabled(True)
         self._load_questions()
 
     def _add_fan(self):
@@ -844,3 +868,227 @@ class FanWidget(QWidget):
                 self.refresh()
             except APIError as e:
                 QMessageBox.critical(self, "Xato", str(e))
+
+    # ── Excel import / namuna ────────────────────────────────────────────────
+
+    def _download_template(self):
+        """Namuna Excel faylini yuklash."""
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            QMessageBox.critical(self, "Xato", "openpyxl kutubxonasi topilmadi!")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Namuna Excel faylini saqlash",
+            "savol_namuna.xlsx", "Excel (*.xlsx)"
+        )
+        if not path:
+            return
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Savollar"
+
+        headers = [
+            "Savol matni",
+            "A variant",
+            "B variant",
+            "C variant",
+            "D variant",
+            "To'g'ri javob (A/B/C/D)",
+            "Daraja (easy / medium / hard)",
+        ]
+        hdr_fill = PatternFill("solid", fgColor="2563EB")
+        hdr_font = Font(bold=True, color="FFFFFF", size=12)
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        examples = [
+            [
+                "O'zbekiston qachon mustaqillik oldi?",
+                "1990-yil",
+                "1991-yil",
+                "1992-yil",
+                "1993-yil",
+                "B",
+                "easy",
+            ],
+            [
+                "Dunyo bo'yicha eng katta okean qaysi?",
+                "Atlantika okeani",
+                "Hind okeani",
+                "Tinch okean",
+                "Arktika okeani",
+                "C",
+                "medium",
+            ],
+            [
+                "2 darajaga ko'tarilgan 10 qanday son?",
+                "20",
+                "12",
+                "100",
+                "1000",
+                "C",
+                "easy",
+            ],
+        ]
+        ex_font = Font(size=11)
+        for r_idx, row in enumerate(examples, 2):
+            for c_idx, val in enumerate(row, 1):
+                cell = ws.cell(row=r_idx, column=c_idx, value=val)
+                cell.font = ex_font
+
+        col_widths = [48, 22, 22, 22, 22, 22, 26]
+        for col_idx, w in enumerate(col_widths, 1):
+            ws.column_dimensions[
+                openpyxl.utils.get_column_letter(col_idx)
+            ].width = w
+        ws.row_dimensions[1].height = 32
+
+        try:
+            wb.save(path)
+        except Exception as e:
+            QMessageBox.critical(self, "Xato", f"Fayl saqlanmadi:\n{e}")
+            return
+
+        QMessageBox.information(
+            self, "✅  Namuna saqlandi",
+            f"Namuna fayl saqlandi:\n{path}\n\n"
+            "📌  Ko'rsatmalar:\n"
+            "1. Faylni Excel yoki Google Sheets da oching\n"
+            "2. 2-qatordan boshlab o'z savollaringizni kiriting\n"
+            "3. «To'g'ri javob» ustuniga faqat A, B, C yoki D kiriting\n"
+            "4. «Daraja» ustuniga: easy / medium / hard\n"
+            "5. Faylni saqlang, keyin «Exceldan yuklash» tugmasini bosing"
+        )
+
+    def _import_excel(self):
+        """Exceldan savollarni o'qib API orqali yuklash."""
+        if not self._fan_id:
+            QMessageBox.information(self, "Fan tanlanmagan",
+                                    "Avval chapdan fan tanlang!")
+            return
+
+        try:
+            import openpyxl
+        except ImportError:
+            QMessageBox.critical(self, "Xato", "openpyxl kutubxonasi topilmadi!")
+            return
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Excel faylni tanlang", "",
+            "Excel fayllar (*.xlsx *.xls)"
+        )
+        if not path:
+            return
+
+        try:
+            wb = openpyxl.load_workbook(path, data_only=True)
+            ws = wb.active
+        except Exception as e:
+            QMessageBox.critical(self, "Fayl ochilmadi", str(e))
+            return
+
+        valid_rows = []
+        error_lines = []
+
+        for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if not row or not row[0]:
+                continue
+
+            text   = str(row[0]).strip() if row[0] else ""
+            opt_a  = str(row[1]).strip() if len(row) > 1 and row[1] else ""
+            opt_b  = str(row[2]).strip() if len(row) > 2 and row[2] else ""
+            opt_c  = str(row[3]).strip() if len(row) > 3 and row[3] else ""
+            opt_d  = str(row[4]).strip() if len(row) > 4 and row[4] else ""
+            answer = str(row[5]).strip().upper() if len(row) > 5 and row[5] else ""
+            diff   = str(row[6]).strip().lower() if len(row) > 6 and row[6] else "medium"
+
+            if not all([text, opt_a, opt_b, opt_c, opt_d]):
+                error_lines.append(f"• Qator {i}: ba'zi maydonlar bo'sh")
+                continue
+            if answer not in ("A", "B", "C", "D"):
+                error_lines.append(
+                    f"• Qator {i}: to'g'ri javob '{answer}' noto'g'ri — A/B/C/D bo'lishi kerak"
+                )
+                continue
+            if diff not in ("easy", "medium", "hard"):
+                diff = "medium"
+
+            valid_rows.append({
+                "text": text,
+                "option_a": opt_a,
+                "option_b": opt_b,
+                "option_c": opt_c,
+                "option_d": opt_d,
+                "correct_answer": answer,
+                "category_id": self._fan_id,
+                "difficulty": diff,
+            })
+
+        if not valid_rows:
+            msg = "Faylda yuklanishi mumkin bo'lgan savol topilmadi!\n\n"
+            if error_lines:
+                msg += "Xatolar:\n" + "\n".join(error_lines[:8])
+            else:
+                msg += "1-qator sarlavha. 2-qatordan boshlab savol kiriting.\n"
+                msg += "«📄 Namuna Excel» tugmasi bilan namuna faylni yuklab oling."
+            QMessageBox.warning(self, "Savol topilmadi", msg)
+            return
+
+        confirm_msg = (
+            f"✅  {len(valid_rows)} ta savol yuklanadi  «{self._fan_name}» faniga.\n"
+        )
+        if error_lines:
+            confirm_msg += f"⚠️  {len(error_lines)} ta qatorda xato bor (o'tkazib yuboriladi).\n"
+        confirm_msg += "\nDavom etasizmi?"
+
+        if QMessageBox.question(
+            self, "Yuklashni tasdiqlang", confirm_msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        # Progress dialog
+        progress = QProgressDialog(
+            "Savollar yuklanmoqda...", "Bekor qilish",
+            0, len(valid_rows), self
+        )
+        progress.setWindowTitle("Yuklanmoqda")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumWidth(340)
+
+        success_n = 0
+        fail_n = 0
+        fail_msgs = []
+
+        for idx, q_data in enumerate(valid_rows):
+            if progress.wasCanceled():
+                break
+            progress.setValue(idx)
+            progress.setLabelText(
+                f"Yuklanmoqda... {idx + 1} / {len(valid_rows)}\n{q_data['text'][:60]}"
+            )
+            try:
+                api.create_question(q_data)
+                success_n += 1
+            except APIError as e:
+                fail_n += 1
+                fail_msgs.append(str(e))
+
+        progress.setValue(len(valid_rows))
+
+        self._load_questions()
+        self.refresh()
+
+        result = f"✅  {success_n} ta savol muvaffaqiyatli yuklandi!"
+        if fail_n:
+            result += f"\n❌  {fail_n} ta savol yuklanmadi."
+        if error_lines:
+            result += f"\n⚠️  {len(error_lines)} ta qator o'tkazib yuborildi (format xatosi)."
+        QMessageBox.information(self, "Natija", result)
