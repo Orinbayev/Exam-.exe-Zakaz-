@@ -1,19 +1,18 @@
 """
-Login oynasi — professional, zamonaviy dizayn.
+Login oynasi — to'liq ekran, gradient fon, markazda karta.
 """
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QFrame,
     QGraphicsDropShadowEffect, QToolButton
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QRect, QRectF, QPoint
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import (
-    QFont, QColor, QGuiApplication, QPainter,
+    QFont, QColor, QPainter,
     QLinearGradient, QRadialGradient, QBrush, QPen
 )
 from ..api_client import api, APIError
 from ..config import Config
-from ..styles import COLORS
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -41,11 +40,11 @@ class LoginThread(QThread):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Dekorativ fon (painted background)
+# To'liq ekran gradient fon
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _BgWidget(QWidget):
-    """Gradient fon + yaltiroq aylana dekoratsiyalari."""
+    """Butun ekranni qoplaydigan gradient fon + dekorativ doiralar."""
 
     def paintEvent(self, _event):
         p = QPainter(self)
@@ -59,11 +58,9 @@ class _BgWidget(QWidget):
         g.setColorAt(1.00, QColor("#07131F"))
         p.fillRect(self.rect(), QBrush(g))
 
-        # Yuqori-chap yaltiroq doira
         def _glow(cx, cy, r, color_hex, alpha=55):
             rg = QRadialGradient(cx, cy, r)
-            c = QColor(color_hex)
-            c.setAlpha(alpha)
+            c  = QColor(color_hex); c.setAlpha(alpha)
             rg.setColorAt(0.0, c)
             c2 = QColor(color_hex); c2.setAlpha(0)
             rg.setColorAt(1.0, c2)
@@ -71,12 +68,12 @@ class _BgWidget(QWidget):
             p.setPen(Qt.PenStyle.NoPen)
             p.drawEllipse(int(cx - r), int(cy - r), int(r * 2), int(r * 2))
 
-        _glow(-30,  -30,  200, "#1565C0", 70)
-        _glow(w+30,  h+30, 220, "#0D47A1", 60)
-        _glow(w-40,  60,   130, "#42A5F5", 35)
-        _glow(60,   h-60,  160, "#1976D2", 40)
+        _glow(-30,   -30,  250, "#1565C0", 70)
+        _glow(w+30,  h+30, 280, "#0D47A1", 60)
+        _glow(w-40,   60,  180, "#42A5F5", 35)
+        _glow(60,    h-60, 200, "#1976D2", 40)
 
-        # Nozik grid nuqtalari
+        # Grid nuqtalari
         p.setPen(QPen(QColor(255, 255, 255, 8), 1))
         for x in range(0, w, 32):
             for y in range(0, h, 32):
@@ -84,7 +81,7 @@ class _BgWidget(QWidget):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Input wrapper (label + maydon)
+# Input blok (label + field)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _INPUT_STYLE = """
@@ -102,24 +99,20 @@ QLineEdit:focus {
     background: rgba(66, 165, 245, 0.08);
 }
 """
-
 _LABEL_STYLE = "color: #78909C; font-size: 10px; font-weight: 600; letter-spacing: 1px;"
 
-def _input_block(label_text: str) -> tuple:
+
+def _input_block(label_text: str):
     """(wrapper QWidget, QLineEdit) qaytaradi."""
-    w = QWidget()
-    w.setStyleSheet("background: transparent;")
-    lay = QVBoxLayout(w)
-    lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(6)
+    w   = QWidget(); w.setStyleSheet("background: transparent;")
+    lay = QVBoxLayout(w); lay.setContentsMargins(0, 0, 0, 0); lay.setSpacing(6)
     lbl = QLabel(label_text.upper())
     lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
     lbl.setStyleSheet(_LABEL_STYLE)
     inp = QLineEdit()
     inp.setStyleSheet(_INPUT_STYLE)
     inp.setFont(QFont("Segoe UI", 13))
-    lay.addWidget(lbl)
-    lay.addWidget(inp)
+    lay.addWidget(lbl); lay.addWidget(inp)
     return w, inp
 
 
@@ -133,33 +126,39 @@ class LoginWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Smart Exam System — Kirish")
-        self.setFixedSize(460, 620)
+        self.setMinimumSize(800, 560)
         self._thread = None
         self._build()
-        self._center()
-
-    def _center(self):
-        sc = QGuiApplication.primaryScreen().geometry()
-        self.move(
-            (sc.width()  - self.width())  // 2,
-            (sc.height() - self.height()) // 2,
-        )
 
     # ── UI qurilishi ──────────────────────────────────────────────────────────
 
     def _build(self):
+        # To'liq ekran gradient fon
         bg = _BgWidget()
         self.setCentralWidget(bg)
 
-        root = QVBoxLayout(bg)
-        root.setContentsMargins(40, 38, 40, 28)
+        # ── Tashqi layout: chapdan-o'ngga, karta markazda ─────────────────────
+        outer = QHBoxLayout(bg)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        outer.addStretch(1)
+
+        # Markaziy ustun — kenglik ekran holatiga ko'ra moslashadi
+        center = QWidget()
+        center.setFixedWidth(480)
+        center.setStyleSheet("background: transparent;")
+        outer.addWidget(center)
+        outer.addStretch(1)
+
+        # ── Vertikal layout: yuqori-pastga, karta vertikal markazda ──────────
+        root = QVBoxLayout(center)
+        root.setContentsMargins(20, 0, 20, 0)
         root.setSpacing(0)
-        root.setAlignment(Qt.AlignmentFlag.AlignTop)
+        root.addStretch(2)   # yuqori bo'sh joy (katta)
 
         # ── Logo badge ────────────────────────────────────────────────────────
         badge_row = QHBoxLayout()
-        badge = QWidget()
-        badge.setFixedSize(76, 76)
+        badge = QWidget(); badge.setFixedSize(76, 76)
         badge.setStyleSheet("""
             QWidget {
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
@@ -168,28 +167,23 @@ class LoginWindow(QMainWindow):
             }
         """)
         sh = QGraphicsDropShadowEffect()
-        sh.setBlurRadius(32)
-        sh.setColor(QColor(21, 101, 192, 160))
-        sh.setOffset(0, 8)
+        sh.setBlurRadius(32); sh.setColor(QColor(21, 101, 192, 160)); sh.setOffset(0, 8)
         badge.setGraphicsEffect(sh)
 
-        b_lay = QVBoxLayout(badge)
-        b_lay.setContentsMargins(0, 0, 0, 0)
+        b_lay = QVBoxLayout(badge); b_lay.setContentsMargins(0, 0, 0, 0)
         ico = QLabel("🎓")
         ico.setFont(QFont("Segoe UI Emoji", 32))
         ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ico.setStyleSheet("background: transparent;")
         b_lay.addWidget(ico)
 
-        badge_row.addStretch()
-        badge_row.addWidget(badge)
-        badge_row.addStretch()
+        badge_row.addStretch(); badge_row.addWidget(badge); badge_row.addStretch()
         root.addLayout(badge_row)
         root.addSpacing(20)
 
         # ── Sarlavha ──────────────────────────────────────────────────────────
         title = QLabel("Smart Exam System")
-        title.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        title.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("color: white; background: transparent;")
         root.addWidget(title)
@@ -211,9 +205,7 @@ class LoginWindow(QMainWindow):
             }
         """)
         card_sh = QGraphicsDropShadowEffect()
-        card_sh.setBlurRadius(50)
-        card_sh.setColor(QColor(0, 0, 0, 160))
-        card_sh.setOffset(0, 14)
+        card_sh.setBlurRadius(50); card_sh.setColor(QColor(0, 0, 0, 160)); card_sh.setOffset(0, 14)
         card.setGraphicsEffect(card_sh)
 
         cl = QVBoxLayout(card)
@@ -231,7 +223,7 @@ class LoginWindow(QMainWindow):
         self.username_input.setPlaceholderText("username kiriting")
         cl.addWidget(usr_w)
 
-        # Password + ko'rsatish tugmasi
+        # Password
         pwd_w, self.password_input = _input_block("🔒  Parol")
         self.password_input.setPlaceholderText("••••••••")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
@@ -240,19 +232,14 @@ class LoginWindow(QMainWindow):
         self._eye = QToolButton(self.password_input)
         self._eye.setCursor(Qt.CursorShape.PointingHandCursor)
         self._eye.setCheckable(True)
-        self._eye.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         self._eye.setText("Ko'rsat")
         self._eye.setStyleSheet("""
             QToolButton {
-                background: transparent;
-                border: none;
-                color: #546E7A;
-                font-size: 9px;
-                font-weight: 700;
-                padding: 0 10px;
-                letter-spacing: 0.3px;
+                background: transparent; border: none;
+                color: #546E7A; font-size: 9px; font-weight: 700;
+                padding: 0 10px; letter-spacing: 0.3px;
             }
-            QToolButton:hover { color: #90CAF9; }
+            QToolButton:hover  { color: #90CAF9; }
             QToolButton:checked { color: #42A5F5; }
         """)
         self._eye.toggled.connect(self._toggle_eye)
@@ -286,20 +273,14 @@ class LoginWindow(QMainWindow):
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #1565C0, stop:1 #1E88E5);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: bold;
-                letter-spacing: 0.5px;
+                color: white; border: none; border-radius: 10px;
+                font-size: 14px; font-weight: bold; letter-spacing: 0.5px;
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #1976D2, stop:1 #42A5F5);
             }
-            QPushButton:pressed {
-                background: #0D47A1;
-            }
+            QPushButton:pressed  { background: #0D47A1; }
             QPushButton:disabled {
                 background: rgba(255,255,255,0.10);
                 color: rgba(255,255,255,0.35);
@@ -309,9 +290,9 @@ class LoginWindow(QMainWindow):
         cl.addWidget(self.login_btn)
 
         root.addWidget(card)
-        root.addStretch()
+        root.addStretch(1)   # pastki bo'sh joy (kichikroq)
 
-        # ── Separator chiziq ──────────────────────────────────────────────────
+        # ── Separator ─────────────────────────────────────────────────────────
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setStyleSheet("background: rgba(255,255,255,0.07); border: none; min-height: 1px; max-height: 1px;")
@@ -324,8 +305,9 @@ class LoginWindow(QMainWindow):
         footer.setFont(QFont("Segoe UI", 9))
         footer.setStyleSheet("color: rgba(255,255,255,0.22); background: transparent;")
         root.addWidget(footer)
+        root.addSpacing(16)
 
-    # ── Eye button joylashtirish ──────────────────────────────────────────────
+    # ── Eye tugmasi joylashuvi ────────────────────────────────────────────────
 
     def _place_eye(self):
         h = self.password_input.height() or 44
@@ -350,7 +332,7 @@ class LoginWindow(QMainWindow):
         self._eye.setText("Yashir" if checked else "Ko'rsat")
         self._place_eye()
 
-    # ── Login mantiq ──────────────────────────────────────────────────────────
+    # ── Login mantiq ─────────────────────────────────────────────────────────
 
     def _do_login(self):
         server = self.server_input.text().strip()

@@ -5,13 +5,18 @@ from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtCore import Qt
 import sys
 
+# Global referenslar — PyQt6 da signal ichida yaratilgan window larni
+# Python Garbage Collector o'chirib yubormasligi uchun saqlaymiz.
+_app_windows: dict = {}
+
 
 def restart_to_login(current_window: QMainWindow = None):
-    """Login oynasiga qaytish — avval login ko'rsatiladi, keyin eski oyna yopiladi."""
+    """Login oynasiga qaytish."""
     from .windows.login_window import LoginWindow
     login = LoginWindow()
+    _app_windows['login'] = login
     login.login_success.connect(open_dashboard)
-    login.show()
+    login.showMaximized()
     if current_window:
         current_window.hide()
         from PyQt6.QtCore import QTimer
@@ -24,13 +29,15 @@ def open_dashboard(role: str):
     from .windows.teacher.dashboard import TeacherDashboard
     is_superadmin = (role == "superadmin")
     dashboard = TeacherDashboard(is_superadmin=is_superadmin)
+    # Global dict da saqlamasak, signal tugagach Python GC o'chirib yuboradi
+    # va window darhol yopiladi — shu muammoning yechimi
+    _app_windows['dashboard'] = dashboard
     dashboard.show()
     # Login oynasini yopish
     for widget in QApplication.topLevelWidgets():
         from .windows.login_window import LoginWindow
         if isinstance(widget, LoginWindow):
             widget.close()
-    return dashboard
 
 
 def run():
@@ -38,10 +45,11 @@ def run():
     app = QApplication(sys.argv)
     app.setApplicationName("Smart Exam System")
     app.setOrganizationName("SmartExam")
-    # Login oynasini ochish
+
     from .windows.login_window import LoginWindow
     login = LoginWindow()
+    _app_windows['login'] = login
     login.login_success.connect(open_dashboard)
-    login.show()
+    login.showMaximized()
 
     sys.exit(app.exec())
