@@ -11,6 +11,11 @@ if sys.platform == 'win32' and getattr(sys, 'frozen', False):
 
     meipass = sys._MEIPASS
 
+    # _MEIPASS ni sys.path ga qo'shish — app/* source fayllar shu yerda
+    # (datas orqali ko'chirilgan), shuning uchun import app.xxx.yyy ishlaydi
+    if meipass not in sys.path:
+        sys.path.insert(0, meipass)
+
     # _MEIPASS ni Windows DLL qidirish ro'yxatiga qo'shish
     try:
         ctypes.windll.kernel32.AddDllDirectory(ctypes.c_wchar_p(meipass))

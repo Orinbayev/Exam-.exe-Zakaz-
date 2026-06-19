@@ -17,7 +17,7 @@ a = Analysis(
     pathex=[SPECPATH, '.'],
     binaries=qt_b,
     datas=qt_d + [
-        ('app/assets', 'assets'),
+        ('app', 'app'),          # butun app/ source — _MEIPASS/app/ da bo'ladi
         ('config.json', '.'),
     ],
     hiddenimports=qt_h + collect_submodules('PyQt6') + app_mods + [
