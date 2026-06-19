@@ -3,6 +3,9 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 qt_d, qt_b, qt_h = collect_all('PyQt6')
 
+# app paketidagi BARCHA modullarni avtomatik to'plash
+app_mods = collect_submodules('app')
+
 a = Analysis(
     ['run_client.py'],
     pathex=['.'],
@@ -11,28 +14,17 @@ a = Analysis(
         ('app/assets', 'assets'),
         ('config.json', '.'),
     ],
-    hiddenimports=qt_h + collect_submodules('PyQt6') + [
+    hiddenimports=qt_h + collect_submodules('PyQt6') + app_mods + [
         'pkgutil',
         'pkg_resources',
         'importlib.metadata',
         'importlib.resources',
-        'app',
-        'app.api_client',
-        'app.config',
-        'app.main',
-        'app.styles',
-        'app.windows',
-        'app.windows.login_window',
-        'app.windows.teacher',
-        'app.windows.teacher.dashboard',
-        'app.windows.teacher.students_widget',
-        'app.windows.teacher.questions_widget',
-        'app.windows.teacher.fan_widget',
-        'app.windows.teacher.results_widget',
-        'app.windows.teacher.stats_widget',
-        'app.windows.teacher.tests_widget',
-        'app.windows.superadmin',
-        'app.windows.superadmin.dashboard',
+        'requests',
+        'openpyxl',
+        'charset_normalizer',
+        'certifi',
+        'idna',
+        'urllib3',
     ],
     hookspath=[],
     runtime_hooks=['pyqt6_runtime_hook.py'],
