@@ -172,10 +172,8 @@ class QuestionDialog(QDialog):
     def __init__(self, fan_name: str = "", question: dict = None, parent=None):
         super().__init__(parent)
         self._q = question
-        self.setWindowTitle(
-            f"{'Savol qo\'shish' if not question else 'Savolni tahrirlash'}"
-            + (f" — {fan_name}" if fan_name else "")
-        )
+        _action = "Savol qo'shish" if not question else "Savolni tahrirlash"
+        self.setWindowTitle(_action + (f" — {fan_name}" if fan_name else ""))
         self.setFixedWidth(540)
         self.setStyleSheet(_DLG_BASE)
         self._build()

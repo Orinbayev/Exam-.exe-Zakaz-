@@ -90,9 +90,8 @@ class TeacherDashboard(QMainWindow):
         super().__init__()
         self.is_superadmin = is_superadmin
         self._collapsed = False
-        self.setWindowTitle(
-            f"Smart Exam System — {'Super Admin' if is_superadmin else 'O\'qituvchi'} paneli"
-        )
+        _role = "Super Admin" if is_superadmin else "O'qituvchi"
+        self.setWindowTitle(f"Smart Exam System — {_role} paneli")
         self.setMinimumSize(900, 600)
         self.setStyleSheet(MAIN_STYLE)
         self._setup_ui()
