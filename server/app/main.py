@@ -129,3 +129,15 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/db-test")
+def db_test():
+    from sqlalchemy import text
+    from .database import engine
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"db": "ok"}
+    except Exception as e:
+        return {"db": "error", "detail": str(e)}
