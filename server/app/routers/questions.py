@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
-from ..models import Question, Category, User
+from ..models import Question, Category, User, TestQuestion, ClassFan
 from ..schemas import QuestionCreate, QuestionUpdate, QuestionOut, CategoryCreate, CategoryOut
 from ..auth import require_teacher_or_admin, get_current_user
 
@@ -211,6 +211,17 @@ def delete_category(
     category = cat.first()
     if not category:
         raise HTTPException(status_code=404, detail="Fan topilmadi")
+
+    # 1. Sinfga biriktirilgan class_fans yozuvlarini o'chir
+    db.query(ClassFan).filter(ClassFan.fan_id == category_id).delete(synchronize_session=False)
+
+    # 2. Bu fanga tegishli savollarni topib, avval test_questions'ni o'chir, keyin savollarni
+    q_ids = [r.id for r in db.query(Question.id).filter(Question.category_id == category_id).all()]
+    if q_ids:
+        db.query(TestQuestion).filter(TestQuestion.question_id.in_(q_ids)).delete(synchronize_session=False)
+        db.query(Question).filter(Question.category_id == category_id).delete(synchronize_session=False)
+
+    # 3. Fanning o'zini o'chir
     db.delete(category)
     db.commit()
     return {"message": "Fan o'chirildi"}
