@@ -22,12 +22,12 @@ class UserDialog(QDialog):
         self.user = user
         self._default_role = default_role
         is_edit = bool(user)
-        role_name = "O'qituvchi" if (user or {}).get("role", default_role) == "teacher" else "Admin"
         if is_edit:
-            self.setWindowTitle(f"✏️  {role_name}ni tahrirlash")
+            role_name = t("udlg.role_teacher") if (user or {}).get("role", default_role) == "teacher" else t("udlg.role_admin")
+            self.setWindowTitle(t("udlg.title_edit", role=role_name))
         else:
-            self.setWindowTitle("👨‍🏫  Yangi o'qituvchi yaratish" if default_role == "teacher"
-                                else "👤  Yangi foydalanuvchi yaratish")
+            self.setWindowTitle(t("udlg.title_teacher") if default_role == "teacher"
+                                else t("udlg.title_user"))
         self.setMinimumWidth(460)
         self._setup_ui()
         if user:
@@ -43,27 +43,26 @@ class UserDialog(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.username_input = QLineEdit()
-        self.username_input.setPlaceholderText("lotin harflar va raqamlar (masalan: teacher1)")
+        self.username_input.setPlaceholderText(t("udlg.ph_login"))
         self.username_input.setFixedHeight(36)
-        form.addRow("Login *:", self.username_input)
+        form.addRow(t("udlg.lbl_login"), self.username_input)
 
         self.fullname_input = QLineEdit()
-        self.fullname_input.setPlaceholderText("Ism Familiya Sharif")
+        self.fullname_input.setPlaceholderText(t("udlg.ph_fullname"))
         self.fullname_input.setFixedHeight(36)
-        form.addRow("To'liq ism *:", self.fullname_input)
+        form.addRow(t("udlg.lbl_fullname"), self.fullname_input)
 
-        # Parol qatori (ko'rish tugmasi bilan)
         pwd_row = QHBoxLayout()
         pwd_row.setSpacing(6)
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setPlaceholderText("Parol kiriting (kamida 4 ta belgi)")
+        self.password_input.setPlaceholderText(t("udlg.ph_password"))
         self.password_input.setFixedHeight(36)
         eye_btn = QToolButton()
         eye_btn.setText("👁")
         eye_btn.setFixedSize(36, 36)
         eye_btn.setCheckable(True)
-        eye_btn.setToolTip("Parolni ko'rsatish / yashirish")
+        eye_btn.setToolTip(t("udlg.tip_eye"))
         eye_btn.toggled.connect(
             lambda on: self.password_input.setEchoMode(
                 QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
@@ -71,14 +70,13 @@ class UserDialog(QDialog):
         )
         pwd_row.addWidget(self.password_input)
         pwd_row.addWidget(eye_btn)
-        form.addRow("Parol *:", pwd_row)
+        form.addRow(t("udlg.lbl_password"), pwd_row)
 
-        # Parolni tasdiqlash
         pwd2_row = QHBoxLayout()
         pwd2_row.setSpacing(6)
         self.password2_input = QLineEdit()
         self.password2_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password2_input.setPlaceholderText("Parolni qayta kiriting")
+        self.password2_input.setPlaceholderText(t("udlg.ph_pwd2"))
         self.password2_input.setFixedHeight(36)
         eye_btn2 = QToolButton()
         eye_btn2.setText("👁")
@@ -91,38 +89,37 @@ class UserDialog(QDialog):
         )
         pwd2_row.addWidget(self.password2_input)
         pwd2_row.addWidget(eye_btn2)
-        form.addRow("Parol (tasdiqlash):", pwd2_row)
+        form.addRow(t("udlg.lbl_pwd2"), pwd2_row)
 
         self.role_combo = QComboBox()
-        self.role_combo.addItem("👨‍🏫  O'qituvchi", "teacher")
-        self.role_combo.addItem("🔑  Super Admin", "superadmin")
+        self.role_combo.addItem(t("udlg.combo_teacher"), "teacher")
+        self.role_combo.addItem(t("udlg.combo_admin"), "superadmin")
         self.role_combo.setFixedHeight(36)
         if self._default_role == "superadmin":
             self.role_combo.setCurrentIndex(1)
-        form.addRow("Rol:", self.role_combo)
+        form.addRow(t("udlg.lbl_role"), self.role_combo)
 
         self.telegram_input = QLineEdit()
-        self.telegram_input.setPlaceholderText("Telegram chat ID (ixtiyoriy)")
+        self.telegram_input.setPlaceholderText(t("udlg.ph_telegram"))
         self.telegram_input.setFixedHeight(36)
-        form.addRow("Telegram ID:", self.telegram_input)
+        form.addRow(t("udlg.lbl_telegram"), self.telegram_input)
 
-        self.active_check = QCheckBox("Faol (tizimga kira oladi)")
+        self.active_check = QCheckBox(t("udlg.chk_active"))
         self.active_check.setChecked(True)
-        form.addRow("Holat:", self.active_check)
+        form.addRow(t("udlg.lbl_active"), self.active_check)
 
         layout.addLayout(form)
 
-        # Tahrirlash rejimida username o'zgartirilmaydi
         if self.user:
             self.username_input.setEnabled(False)
-            self.password_input.setPlaceholderText("Bo'sh qoldirsa parol o'zgarmaydi")
-            self.password2_input.setPlaceholderText("Bo'sh qoldirsa parol o'zgarmaydi")
+            self.password_input.setPlaceholderText(t("udlg.ph_pwd_edit"))
+            self.password2_input.setPlaceholderText(t("udlg.ph_pwd_edit"))
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("✅  Saqlash")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Bekor qilish")
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(t("common.save"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(t("common.cancel"))
         buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -136,26 +133,27 @@ class UserDialog(QDialog):
         self.active_check.setChecked(user.get("is_active", True))
 
     def _validate_and_accept(self):
+        warn_title = "⚠ " + t("common.warning")
         if not self.user and not self.username_input.text().strip():
-            QMessageBox.warning(self, "⚠ Xato", "Login (username) bo'sh bo'lishi mumkin emas!")
+            QMessageBox.warning(self, warn_title, t("udlg.err_login"))
             self.username_input.setFocus()
             return
         if not self.fullname_input.text().strip():
-            QMessageBox.warning(self, "⚠ Xato", "To'liq ism bo'sh bo'lishi mumkin emas!")
+            QMessageBox.warning(self, warn_title, t("udlg.err_fullname"))
             self.fullname_input.setFocus()
             return
         pwd = self.password_input.text()
         pwd2 = self.password2_input.text()
         if not self.user and not pwd:
-            QMessageBox.warning(self, "⚠ Xato", "Parol kiritish shart!")
+            QMessageBox.warning(self, warn_title, t("udlg.err_pwd_req"))
             self.password_input.setFocus()
             return
         if pwd and len(pwd) < 4:
-            QMessageBox.warning(self, "⚠ Xato", "Parol kamida 4 ta belgidan iborat bo'lishi kerak!")
+            QMessageBox.warning(self, warn_title, t("udlg.err_pwd_short"))
             self.password_input.setFocus()
             return
         if pwd and pwd != pwd2:
-            QMessageBox.warning(self, "⚠ Xato", "Parollar mos kelmadi!\nIkkala maydonga bir xil parol kiriting.")
+            QMessageBox.warning(self, warn_title, t("udlg.err_pwd_mismatch"))
             self.password2_input.setFocus()
             return
         self.accept()
@@ -187,16 +185,15 @@ class UsersWidget(QWidget):
         layout.setSpacing(12)
 
         toolbar = QHBoxLayout()
-        title = QLabel("👥  Foydalanuvchilar boshqaruvi")
+        title = QLabel(t("usr.title"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
 
-        add_teacher_btn = QPushButton("👨‍🏫  O'qituvchi qo'shish")
+        add_teacher_btn = QPushButton(t("usr.add_teacher"))
         add_teacher_btn.setObjectName("success")
         add_teacher_btn.setFixedHeight(36)
-        add_teacher_btn.setToolTip("Yangi o'qituvchi hisobi yaratish")
         add_teacher_btn.clicked.connect(self._add_teacher)
 
-        add_admin_btn = QPushButton("🔑  Admin qo'shish")
+        add_admin_btn = QPushButton(t("usr.add_admin"))
         add_admin_btn.setObjectName("secondary")
         add_admin_btn.setFixedHeight(36)
         add_admin_btn.clicked.connect(self._add_user)
@@ -214,15 +211,16 @@ class UsersWidget(QWidget):
         toolbar.addWidget(refresh_btn)
         layout.addLayout(toolbar)
 
-        hint = QLabel("💡  O'qituvchi yaratib, login va parolini o'qituvchiga bering — tizimga kiradi.")
+        hint = QLabel(t("usr.hint"))
         hint.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
         layout.addWidget(hint)
 
         self.table = QTableWidget()
         self.table.setColumnCount(7)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Username", "To'liq ism", "Rol", "Telegram", "Holat", "Amallar"]
-        )
+        self.table.setHorizontalHeaderLabels([
+            t("usr.col_id"), t("usr.col_username"), t("usr.col_fullname"),
+            t("usr.col_role"), t("usr.col_telegram"), t("usr.col_status"), t("usr.col_actions")
+        ])
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 45)
         self.table.setColumnWidth(1, 130)
@@ -240,11 +238,11 @@ class UsersWidget(QWidget):
             self.users = api.get_users()
             self._render_table()
         except APIError as e:
-            QMessageBox.warning(self, "Xato", str(e))
+            QMessageBox.warning(self, t("common.error"), str(e))
 
     def _render_table(self):
         self.table.setRowCount(len(self.users))
-        role_labels = {"superadmin": "🔑 Super Admin", "teacher": "👨‍🏫 O'qituvchi"}
+        role_labels = {"superadmin": t("usr.role_admin"), "teacher": t("usr.role_teacher")}
         for row, u in enumerate(self.users):
             self.table.setRowHeight(row, 50)
             self.table.setItem(row, 0, QTableWidgetItem(str(u["id"])))
@@ -258,7 +256,7 @@ class UsersWidget(QWidget):
 
             self.table.setItem(row, 4, QTableWidgetItem(u.get("telegram_chat_id") or "—"))
 
-            status = QTableWidgetItem("✅ Faol" if u["is_active"] else "🚫 Blok")
+            status = QTableWidgetItem(t("usr.status_active") if u["is_active"] else t("usr.status_blocked"))
             status.setForeground(
                 QColor(COLORS["success_light"]) if u["is_active"] else QColor(COLORS["danger_light"])
             )
@@ -274,13 +272,13 @@ class UsersWidget(QWidget):
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(38, 32)
             edit_btn.setObjectName("table_action")
-            edit_btn.setToolTip("Tahrirlash")
+            edit_btn.setToolTip(t("usr.tip_edit"))
             edit_btn.clicked.connect(lambda _, uid=u["id"]: self._edit_user(uid))
 
             del_btn = QPushButton("🗑️")
             del_btn.setFixedSize(38, 32)
             del_btn.setObjectName("table_action_danger")
-            del_btn.setToolTip("O'chirish")
+            del_btn.setToolTip(t("usr.tip_del"))
             del_btn.clicked.connect(lambda _, uid=u["id"]: self._delete_user(uid))
 
             btn_layout.addWidget(edit_btn)
@@ -295,14 +293,11 @@ class UsersWidget(QWidget):
                 api.create_user(data)
                 self.refresh()
                 QMessageBox.information(
-                    self, "✅  O'qituvchi yaratildi",
-                    f"O'qituvchi hisobi muvaffaqiyatli yaratildi!\n\n"
-                    f"👤  Login:  {data.get('username', '')}\n"
-                    f"🔒  Parol:  kiritilgan parol\n\n"
-                    f"Ushbu ma'lumotlarni o'qituvchiga bering."
+                    self, t("usr.created_title"),
+                    t("usr.created_msg", username=data.get("username", ""))
                 )
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _add_user(self):
         dlg = UserDialog(parent=self, default_role="superadmin")
@@ -311,7 +306,7 @@ class UsersWidget(QWidget):
                 api.create_user(dlg.get_data())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _edit_user(self, user_id: int):
         user = next((u for u in self.users if u["id"] == user_id), None)
@@ -323,19 +318,19 @@ class UsersWidget(QWidget):
                 api.update_user(user_id, dlg.get_data())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _delete_user(self, user_id: int):
-        reply = QMessageBox.question(self, "O'chirish",
-                                     "Bu foydalanuvchini o'chirishni tasdiqlaysizmi?\n"
-                                     "Uning barcha savollar va testlari ham o'chiriladi!",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self, t("usr.del_title"), t("usr.del_q"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 api.delete_user(user_id)
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
 
 # ── Settings Widget ───────────────────────────────────────────────────────────
@@ -396,9 +391,9 @@ class SettingsWidget(QWidget):
 
         # Page title + refresh button
         hdr = QHBoxLayout()
-        title = QLabel("⚙️  Tizim Sozlamalari")
+        title = QLabel(t("set.title"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        refresh_btn = QPushButton("🔄 Yangilash")
+        refresh_btn = QPushButton(t("set.refresh"))
         refresh_btn.setObjectName("secondary")
         refresh_btn.clicked.connect(self.refresh)
         hdr.addWidget(title)
@@ -408,26 +403,26 @@ class SettingsWidget(QWidget):
 
         # ── Card 1: Telegram Bot ─────────────────────────────────────────────
         tg_frame, tg_lay = _settings_card(
-            "🤖", "Telegram Bot Sozlamalari", COLORS["primary_light"]
+            "🤖", t("set.tg_card"), COLORS["primary_light"]
         )
 
         # Token row
         token_row = QHBoxLayout()
-        token_lbl = QLabel("Bot Token:")
+        token_lbl = QLabel(t("set.token_lbl"))
         token_lbl.setFixedWidth(100)
         token_lbl.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 12px;"
             f" font-weight: 600; background: transparent;"
         )
         self.bot_token_input = QLineEdit()
-        self.bot_token_input.setPlaceholderText("BotFather'dan olingan token")
+        self.bot_token_input.setPlaceholderText(t("set.token_ph"))
         self.bot_token_input.setEchoMode(QLineEdit.EchoMode.Password)
 
         show_btn = QPushButton("👁")
         show_btn.setFixedSize(36, 36)
         show_btn.setObjectName("secondary")
         show_btn.setCheckable(True)
-        show_btn.setToolTip("Tokenni ko'rsatish / yashirish")
+        show_btn.setToolTip(t("set.token_tip"))
         show_btn.toggled.connect(
             lambda on: self.bot_token_input.setEchoMode(
                 QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
@@ -440,32 +435,28 @@ class SettingsWidget(QWidget):
 
         # Notify teacher row
         notif_row = QHBoxLayout()
-        notif_lbl = QLabel("Bildirishnoma:")
+        notif_lbl = QLabel(t("set.notif_lbl"))
         notif_lbl.setFixedWidth(100)
         notif_lbl.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 12px;"
             f" font-weight: 600; background: transparent;"
         )
-        self.notify_check = QCheckBox("O'qituvchiga test natijalarini yuborish")
+        self.notify_check = QCheckBox(t("set.notif_chk"))
         self.notify_check.setChecked(True)
         notif_row.addWidget(notif_lbl)
         notif_row.addWidget(self.notify_check)
         notif_row.addStretch()
         tg_lay.addLayout(notif_row)
 
-        # How-to hint
-        hint = QLabel(
-            "ℹ️  @BotFather da yangi bot yarating → tokenni nusxalab bu yerga kiriting."
-        )
+        hint = QLabel(t("set.tg_hint"))
         hint.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
         )
         hint.setWordWrap(True)
         tg_lay.addWidget(hint)
 
-        # Test button
         test_btn_row = QHBoxLayout()
-        test_btn = QPushButton("🔔  Telegram test xabari yuborish")
+        test_btn = QPushButton(t("set.tg_test_btn"))
         test_btn.setObjectName("secondary")
         test_btn.clicked.connect(self._test_telegram)
         test_btn_row.addWidget(test_btn)
@@ -476,10 +467,9 @@ class SettingsWidget(QWidget):
 
         # ── Card 2: Parent Telegram Guide ────────────────────────────────────
         par_frame, par_lay = _settings_card(
-            "👨‍👩‍👧", "Ota-ona Telegram Bildirishnomalari", COLORS["accent_light"]
+            "👨‍👩‍👧", t("set.parent_card"), COLORS["accent_light"]
         )
 
-        # Info box (amber tint)
         info_box = QFrame()
         info_box.setStyleSheet("""
             QFrame {
@@ -492,7 +482,7 @@ class SettingsWidget(QWidget):
         info_lay.setContentsMargins(14, 12, 14, 12)
         info_lay.setSpacing(8)
 
-        guide_title = QLabel("Qanday ishlaydi?")
+        guide_title = QLabel(t("set.guide_title"))
         guide_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         guide_title.setStyleSheet(
             f"color: {COLORS['accent_light']}; background: transparent;"
@@ -500,10 +490,10 @@ class SettingsWidget(QWidget):
         info_lay.addWidget(guide_title)
 
         _steps = [
-            ("1", "Ota-ona Telegram-da  @userinfobot  ga  /start  xabarini yuboring"),
-            ("2", "Bot ota-onaning  Chat ID  raqamini yuboradi (masalan: 123456789)"),
-            ("3", "O'qituvchi shu raqamni  O'quvchilar  bo'limida o'quvchi profiliga kiriting"),
-            ("4", "Farzand test yakunlaganda ota-onaga avtomatik bildirishnoma ketadi"),
+            ("1", t("set.step1")),
+            ("2", t("set.step2")),
+            ("3", t("set.step3")),
+            ("4", t("set.step4")),
         ]
         for num, step_txt in _steps:
             row = QHBoxLayout()
@@ -532,10 +522,7 @@ class SettingsWidget(QWidget):
 
         par_lay.addWidget(info_box)
 
-        note = QLabel(
-            "💡  O'quvchilar ro'yxatini boshqarish uchun  "
-            "«O'quvchilar» bo'limini oching."
-        )
+        note = QLabel(t("set.parent_note"))
         note.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
         )
@@ -581,7 +568,7 @@ class SettingsWidget(QWidget):
         # ── Save row ─────────────────────────────────────────────────────────
         save_row = QHBoxLayout()
         save_row.addStretch()
-        save_btn = QPushButton("💾  Sozlamalarni saqlash")
+        save_btn = QPushButton(t("set.save_btn"))
         save_btn.setObjectName("success")
         save_btn.setFixedSize(230, 40)
         save_btn.clicked.connect(self._save_settings)
@@ -616,10 +603,10 @@ class SettingsWidget(QWidget):
                 "telegram_notify_teacher",
                 str(self.notify_check.isChecked()).lower(),
             )
-            self.status_label.setText("✅  Sozlamalar saqlandi!")
+            self.status_label.setText(t("set.saved_ok"))
             self.status_label.setStyleSheet(f"color: {COLORS['success_light']}; font-size: 12px;")
         except APIError as e:
-            self.status_label.setText(f"❌  Xato: {e}")
+            self.status_label.setText(t("set.saved_err", e=e))
             self.status_label.setStyleSheet(f"color: {COLORS['danger_light']}; font-size: 12px;")
 
     def _save_lang(self):
@@ -646,15 +633,11 @@ class SettingsWidget(QWidget):
             settings = api.get_settings()
             token = settings.get("telegram_bot_token", "")
             if not token:
-                QMessageBox.warning(self, "Xato", "Bot token kiritilmagan!\nAvval tokenni kiriting va saqlang.")
+                QMessageBox.warning(self, t("common.error"), t("set.tg_no_token"))
                 return
-            QMessageBox.information(
-                self, "Test xabari",
-                "Test xabari yuborilmoqda...\n\n"
-                "O'qituvchi profilida Telegram Chat ID kiritilgan bo'lishi kerak."
-            )
+            QMessageBox.information(self, t("set.tg_test_title"), t("set.tg_test_msg"))
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
 
 
 # ── Logs Widget ───────────────────────────────────────────────────────────────
@@ -671,10 +654,10 @@ class LogsWidget(QWidget):
         layout.setSpacing(12)
 
         toolbar = QHBoxLayout()
-        title = QLabel("📋 Audit Loglar")
+        title = QLabel(t("log.title"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
 
-        refresh_btn = QPushButton("🔄 Yangilash")
+        refresh_btn = QPushButton(t("log.refresh"))
         refresh_btn.setObjectName("secondary")
         refresh_btn.clicked.connect(self.refresh)
 
@@ -685,9 +668,10 @@ class LogsWidget(QWidget):
 
         self.table = QTableWidget()
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Foydalanuvchi", "Harakat", "Tafsilot", "IP", "Vaqt"]
-        )
+        self.table.setHorizontalHeaderLabels([
+            t("log.col_id"), t("log.col_user"), t("log.col_action"),
+            t("log.col_detail"), t("log.col_ip"), t("log.col_time")
+        ])
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 45)
         self.table.setColumnWidth(1, 120)
@@ -717,4 +701,4 @@ class LogsWidget(QWidget):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.table.setItem(row, col, item)
         except APIError as e:
-            QMessageBox.warning(self, "Xato", str(e))
+            QMessageBox.warning(self, t("common.error"), str(e))
