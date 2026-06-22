@@ -51,50 +51,67 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def startup():
     """Server ishga tushganda DB yaratish va super admin tekshirish."""
-    Base.metadata.create_all(bind=engine)
-    logger.info("Ma'lumotlar bazasi tayyor")
+    import time
+    from sqlalchemy import text
+
+    for attempt in range(6):
+        try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Ma'lumotlar bazasi tayyor")
+            break
+        except Exception as e:
+            wait = 2 ** attempt
+            logger.warning(f"DB ulanish xatosi ({attempt+1}/6): {e} — {wait}s kutilmoqda")
+            if attempt == 5:
+                logger.error("DB ga ulanib bo'lmadi, server davom etmoqda...")
+                return
+            time.sleep(wait)
 
     # Migrations: add missing columns safely
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        migrations = [
-            "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0",
-            "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT 1",
-            "ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30",
-        ]
-        for sql in migrations:
-            try:
-                conn.execute(text(sql))
-                conn.commit()
-            except Exception:
-                pass  # column already exists
-
-    db = SessionLocal()
     try:
-        superadmin = db.query(User).filter(User.role == "superadmin").first()
-        if not superadmin:
-            admin = User(
-                username="admin",
-                password_hash=hash_password("admin123"),
-                full_name="Super Administrator",
-                role="superadmin",
-                is_active=True
-            )
-            db.add(admin)
-            db.commit()
-            logger.info("✅ Default Super Admin yaratildi: admin / admin123")
+        with engine.connect() as conn:
+            migrations = [
+                "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0",
+                "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT 1",
+                "ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30",
+            ]
+            for sql in migrations:
+                try:
+                    conn.execute(text(sql))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning(f"Migration xatosi (e'tiborsiz): {e}")
 
-        # Default sozlamalar
-        defaults = {
-            "telegram_notify_teacher": "true",
-            "system_name": "Smart Exam System",
-        }
-        for key, value in defaults.items():
-            if not db.query(SystemSettings).filter(SystemSettings.key == key).first():
-                db.add(SystemSettings(key=key, value=value))
-        db.commit()
-    finally:
-        db.close()
+    try:
+        db = SessionLocal()
+        try:
+            superadmin = db.query(User).filter(User.role == "superadmin").first()
+            if not superadmin:
+                admin = User(
+                    username="admin",
+                    password_hash=hash_password("admin123"),
+                    full_name="Super Administrator",
+                    role="superadmin",
+                    is_active=True
+                )
+                db.add(admin)
+                db.commit()
+                logger.info("✅ Default Super Admin yaratildi: admin / admin123")
+
+            defaults = {
+                "telegram_notify_teacher": "true",
+                "system_name": "Smart Exam System",
+            }
+            for key, value in defaults.items():
+                if not db.query(SystemSettings).filter(SystemSettings.key == key).first():
+                    db.add(SystemSettings(key=key, value=value))
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Admin yaratishda xato (e'tiborsiz): {e}")
 
     logger.info("🚀 Smart Exam Server ishga tushdi!")
 
