@@ -623,21 +623,23 @@ class SettingsWidget(QWidget):
             self.status_label.setStyleSheet(f"color: {COLORS['danger_light']}; font-size: 12px;")
 
     def _save_lang(self):
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+        from ...main import open_dashboard
+        from ..teacher.dashboard import TeacherDashboard
+
         lang = self._lang_combo.currentData()
         set_lang(lang)
         self._lang_status.setText(t("lang.saved"))
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtWidgets import QApplication
-        from ....main import open_dashboard
-        role = "superadmin"
+
         def _reload():
-            for w in QApplication.topLevelWidgets():
-                from ..teacher.dashboard import TeacherDashboard
+            for w in list(QApplication.topLevelWidgets()):
                 if isinstance(w, TeacherDashboard):
                     w.close()
                     break
-            open_dashboard(role)
-        QTimer.singleShot(800, _reload)
+            open_dashboard("superadmin")
+
+        QTimer.singleShot(600, _reload)
 
     def _test_telegram(self):
         try:
