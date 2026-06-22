@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev gcc && rm -rf /var/lib/apt/lists/*
+    libpq-dev gcc python3-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
