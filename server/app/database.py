@@ -7,6 +7,9 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 import os
 
+import logging
+_db_logger = logging.getLogger("exam_server.db")
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 if DATABASE_URL:
@@ -15,6 +18,7 @@ if DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     _is_sqlite = False
+    _db_logger.warning("✅ DATABASE: PostgreSQL ishlatilmoqda (Railway)")
 else:
     # Local SQLite
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,6 +29,7 @@ else:
         echo=False,
     )
     _is_sqlite = True
+    _db_logger.warning("⚠️  DATABASE: SQLite ishlatilmoqda — DATABASE_URL o'rnatilmagan!")
 
 if _is_sqlite:
     @event.listens_for(engine, "connect")
