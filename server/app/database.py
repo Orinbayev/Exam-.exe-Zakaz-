@@ -17,7 +17,7 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     if "sslmode" not in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL + "?sslmode=require"
+        DATABASE_URL = DATABASE_URL + "?sslmode=disable"
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     _is_sqlite = False
     _db_logger.warning("✅ DATABASE: PostgreSQL ishlatilmoqda (Railway)")
