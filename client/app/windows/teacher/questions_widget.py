@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QFrame, QFileDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
@@ -199,23 +200,32 @@ class QuestionsWidget(QWidget):
         layout.addWidget(self.table)
 
     def refresh(self):
-        try:
-            self.categories = api.get_categories()
-            # Kategoriya filterni yangilash
-            current_cat_id = self.cat_filter.currentData()
-            self.cat_filter.blockSignals(True)
-            self.cat_filter.clear()
-            self.cat_filter.addItem("Barcha kategoriyalar", None)
-            for cat in self.categories:
-                self.cat_filter.addItem(cat["name"], cat["id"])
-            self.cat_filter.blockSignals(False)
+        self.stats_label.setText("Yuklanmoqda…")
+        self._w_cats = ApiWorker(api.get_categories)
+        self._w_cats.done.connect(self._apply_cats)
+        self._w_cats.error.connect(lambda e: self.stats_label.setText(f"Xato: {e}"))
+        self._w_cats.start()
 
-            cat_id = self.cat_filter.currentData()
-            self.questions = api.get_questions(category_id=cat_id)
-            self._render_table(self.questions)
-            self.stats_label.setText(f"Jami: {len(self.questions)} ta savol")
-        except APIError as e:
-            self.stats_label.setText(f"Xato: {e}")
+    def _apply_cats(self, categories):
+        self.categories = categories
+        current_cat_id = self.cat_filter.currentData()
+        self.cat_filter.blockSignals(True)
+        self.cat_filter.clear()
+        self.cat_filter.addItem("Barcha kategoriyalar", None)
+        for cat in self.categories:
+            self.cat_filter.addItem(cat["name"], cat["id"])
+        self.cat_filter.blockSignals(False)
+
+        cat_id = self.cat_filter.currentData()
+        self._w_qs = ApiWorker(api.get_questions, category_id=cat_id)
+        self._w_qs.done.connect(self._apply_questions)
+        self._w_qs.error.connect(lambda e: self.stats_label.setText(f"Xato: {e}"))
+        self._w_qs.start()
+
+    def _apply_questions(self, questions):
+        self.questions = questions
+        self._render_table(self.questions)
+        self.stats_label.setText(f"Jami: {len(self.questions)} ta savol")
 
     def _apply_filter(self):
         search = self.search_input.text().lower()

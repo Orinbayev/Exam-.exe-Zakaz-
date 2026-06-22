@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QLineEdit, QComboBox
 )
 from PyQt6.QtCore import Qt
+from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
@@ -114,12 +115,15 @@ class ResultsWidget(QWidget):
         return val_label
 
     def refresh(self):
-        try:
-            self.results = api.get_results()
-            self._update_summary()
-            self._apply_filter()
-        except APIError as e:
-            QMessageBox.warning(self, "Xato", str(e))
+        self._w_results = ApiWorker(api.get_results)
+        self._w_results.done.connect(self._apply_results)
+        self._w_results.error.connect(lambda e: QMessageBox.warning(self, "Xato", e))
+        self._w_results.start()
+
+    def _apply_results(self, results):
+        self.results = results
+        self._update_summary()
+        self._apply_filter()
 
     def _update_summary(self):
         total = len(self.results)

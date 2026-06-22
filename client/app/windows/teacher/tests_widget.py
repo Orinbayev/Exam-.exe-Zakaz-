@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QGridLayout, QScrollArea
 )
 from PyQt6.QtCore import Qt
+from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
@@ -430,12 +431,16 @@ class TestsWidget(QWidget):
         layout.addWidget(self.table)
 
     def refresh(self):
-        try:
-            self.tests = api.get_tests()
-            self._render_table()
-            self.stats_label.setText(f"Jami: {len(self.tests)} ta test")
-        except APIError as e:
-            self.stats_label.setText(f"Xato: {e}")
+        self.stats_label.setText("Yuklanmoqda…")
+        self._w_tests = ApiWorker(api.get_tests)
+        self._w_tests.done.connect(self._apply_tests)
+        self._w_tests.error.connect(lambda e: self.stats_label.setText(f"Xato: {e}"))
+        self._w_tests.start()
+
+    def _apply_tests(self, tests):
+        self.tests = tests
+        self._render_table()
+        self.stats_label.setText(f"Jami: {len(self.tests)} ta test")
 
     def _render_table(self):
         self.table.setRowCount(len(self.tests))

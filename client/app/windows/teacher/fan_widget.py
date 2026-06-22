@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QFileDialog, QProgressDialog,
 )
 from PyQt6.QtCore import Qt, QSize, QTimer
+from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
@@ -118,49 +119,149 @@ class FanDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Yangi fan qo'shish")
-        self.setFixedSize(380, 190)
-        self.setStyleSheet(_DLG_BASE)
+        self.setFixedSize(440, 290)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {COLORS['bg_medium']};
+                border-radius: 16px;
+            }}
+        """)
         self._build()
 
     def _build(self):
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(26, 22, 26, 22)
-        lay.setSpacing(14)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        # ── Header ─────────────────────────────────────────────────────────────
+        header = QFrame()
+        header.setFixedHeight(100)
+        header.setStyleSheet(f"""
+            QFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {COLORS['primary_dark']}, stop:1 {COLORS['primary']});
+                border-radius: 0px;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }}
+        """)
+        h_lay = QVBoxLayout(header)
+        h_lay.setContentsMargins(0, 14, 0, 14)
+        h_lay.setSpacing(4)
 
         ico = QLabel("📚")
-        ico.setFont(QFont("Segoe UI Emoji", 28))
+        ico.setFont(QFont("Segoe UI Emoji", 26))
         ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(ico)
+        h_lay.addWidget(ico)
+
+        title_lbl = QLabel("Yangi fan qo'shish")
+        title_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_lbl.setStyleSheet("color: white; background: transparent;")
+        h_lay.addWidget(title_lbl)
+        root.addWidget(header)
+
+        # ── Body ───────────────────────────────────────────────────────────────
+        body = QFrame()
+        body.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['bg_medium']};
+                border-bottom-left-radius: 10px;
+                border-bottom-right-radius: 10px;
+            }}
+        """)
+        b_lay = QVBoxLayout(body)
+        b_lay.setContentsMargins(28, 20, 28, 24)
+        b_lay.setSpacing(14)
 
         lbl = QLabel("Fan nomini kiriting:")
-        lbl.setFont(QFont("Segoe UI", 11))
-        lay.addWidget(lbl)
+        lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
+        b_lay.addWidget(lbl)
 
         self.inp = QLineEdit()
         self.inp.setPlaceholderText("Masalan:  Matematika   yoki   Ona tili")
-        self.inp.setFixedHeight(42)
+        self.inp.setFixedHeight(46)
+        self.inp.setFont(QFont("Segoe UI", 12))
+        self.inp.setStyleSheet(f"""
+            QLineEdit {{
+                background: {COLORS['bg_dark']};
+                color: white;
+                border: 2px solid {COLORS['border']};
+                border-radius: 10px;
+                padding: 0 14px;
+                font-size: 13px;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {COLORS['primary_light']};
+                background: #0D2137;
+            }}
+        """)
         self.inp.returnPressed.connect(self._ok)
-        lay.addWidget(self.inp)
+        b_lay.addWidget(self.inp)
 
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        row.addStretch()
-        cl_btn = QPushButton("✕  Bekor")
-        cl_btn.setObjectName("cancel")
-        cl_btn.setFixedSize(110, 34)
+        b_lay.addSpacing(4)
+
+        # ── Buttons ────────────────────────────────────────────────────────────
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        cl_btn = QPushButton("✕   Bekor")
+        cl_btn.setFixedSize(140, 42)
+        cl_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        cl_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                color: {COLORS['text_secondary']};
+                border: 2px solid {COLORS['border']};
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['bg_light']};
+                color: white;
+                border-color: {COLORS['primary_light']};
+            }}
+        """)
         cl_btn.clicked.connect(self.reject)
-        ok_btn = QPushButton("✅  Saqlash")
-        ok_btn.setFixedSize(110, 34)
+
+        ok_btn = QPushButton("✅   Saqlash")
+        ok_btn.setFixedSize(160, 42)
+        ok_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        ok_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {COLORS['success']}, stop:1 #388E3C);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #388E3C, stop:1 {COLORS['success_light']});
+            }}
+            QPushButton:pressed {{
+                background: {COLORS['success']};
+            }}
+        """)
         ok_btn.clicked.connect(self._ok)
-        row.addWidget(cl_btn)
-        row.addWidget(ok_btn)
-        row.addStretch()
-        lay.addLayout(row)
+
+        btn_row.addStretch()
+        btn_row.addWidget(cl_btn)
+        btn_row.addWidget(ok_btn)
+        btn_row.addStretch()
+        b_lay.addLayout(btn_row)
+
+        root.addWidget(body)
 
     def _ok(self):
         if not self.inp.text().strip():
             self.inp.setPlaceholderText("⚠  Fan nomini kiriting!")
-            self.inp.setStyleSheet(self.inp.styleSheet() + "border:2px solid #EF5350;")
+            self.inp.setStyleSheet(self.inp.styleSheet() +
+                "border: 2px solid #EF5350 !important;")
             return
         self.accept()
 
@@ -573,11 +674,14 @@ class FanWidget(QWidget):
     # ── Fanlar ────────────────────────────────────────────────────────────────
 
     def refresh(self):
-        try:
-            self._fans = api.get_categories()
-        except APIError:
-            self._fans = []
+        self._fan_count_lbl.setText("Yuklanmoqda…")
+        self._w_fans = ApiWorker(api.get_categories)
+        self._w_fans.done.connect(self._apply_fans)
+        self._w_fans.error.connect(lambda _: self._apply_fans([]))
+        self._w_fans.start()
 
+    def _apply_fans(self, fans):
+        self._fans = fans
         self._fan_list.blockSignals(True)
         self._fan_list.clear()
         for f in self._fans:
@@ -593,7 +697,6 @@ class FanWidget(QWidget):
         self._fan_list.blockSignals(False)
         self._fan_count_lbl.setText(f"{len(self._fans)} ta")
 
-        # Tanlangan fanni qayta yuklash
         if self._fan_id:
             for i in range(self._fan_list.count()):
                 if self._fan_list.item(i).data(Qt.ItemDataRole.UserRole) == self._fan_id:

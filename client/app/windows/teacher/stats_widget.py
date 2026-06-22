@@ -13,6 +13,7 @@ from PyQt6.QtGui import (
 )
 from ...api_client import api, APIError
 from ...styles import COLORS
+from ...worker import ApiWorker
 
 
 # ── Bar Chart (QPainter) ──────────────────────────────────────────────────────
@@ -476,57 +477,44 @@ class StatsWidget(QWidget):
     # ── Refresh ───────────────────────────────────────────────────────────────
 
     def refresh(self):
-        self._load_overview()
-        self._load_grade_chart()
-        self._load_test_chart()
-        self._load_top_students()
+        self._w_ov  = ApiWorker(api.get_stats_overview);    self._w_ov.done.connect(self._apply_overview);    self._w_ov.start()
+        self._w_gd  = ApiWorker(api.get_grade_distribution); self._w_gd.done.connect(self._apply_grade_chart); self._w_gd.start()
+        self._w_ts  = ApiWorker(api.get_stats_by_test);      self._w_ts.done.connect(self._apply_test_chart);  self._w_ts.start()
+        self._w_top = ApiWorker(api.get_top_students);       self._w_top.done.connect(self._load_top_students); self._w_top.start()
 
-    def _load_overview(self):
-        try:
-            ov = api.get_stats_overview()
-            self._card_labels["total"].setText(str(ov.get("total_sessions", 0)))
-            self._card_labels["passed"].setText(str(ov.get("total_passed", 0)))
-            self._card_labels["failed"].setText(str(ov.get("total_failed", 0)))
-            self._card_labels["avg"].setText(f"{ov.get('average_score', 0):.1f}%")
-            self._card_labels["pass_rate"].setText(f"{ov.get('pass_rate', 0):.1f}%")
-        except APIError:
-            pass
+    def _apply_overview(self, ov):
+        self._card_labels["total"].setText(str(ov.get("total_sessions", 0)))
+        self._card_labels["passed"].setText(str(ov.get("total_passed", 0)))
+        self._card_labels["failed"].setText(str(ov.get("total_failed", 0)))
+        self._card_labels["avg"].setText(f"{ov.get('average_score', 0):.1f}%")
+        self._card_labels["pass_rate"].setText(f"{ov.get('pass_rate', 0):.1f}%")
 
-    def _load_grade_chart(self):
-        try:
-            gd = api.get_grade_distribution()
-            if not gd:
-                return
-            grade_colors = {
-                "5": "#66BB6A", "4": "#42A5F5",
-                "3": "#FFA726", "2": "#EF5350", "N/A": "#9E9E9E",
-            }
-            grades = sorted(gd.keys())
-            self._pie.set_data(
-                [f"Baho {g}" for g in grades],
-                [gd[g] for g in grades],
-                [grade_colors.get(g, "#42A5F5") for g in grades],
-            )
-        except APIError:
-            pass
+    def _apply_grade_chart(self, gd):
+        if not gd:
+            return
+        grade_colors = {
+            "5": "#66BB6A", "4": "#42A5F5",
+            "3": "#FFA726", "2": "#EF5350", "N/A": "#9E9E9E",
+        }
+        grades = sorted(gd.keys())
+        self._pie.set_data(
+            [f"Baho {g}" for g in grades],
+            [gd[g] for g in grades],
+            [grade_colors.get(g, "#42A5F5") for g in grades],
+        )
 
-    def _load_test_chart(self):
-        try:
-            ts = api.get_stats_by_test()
-            if not ts:
-                return
-            names, avgs = [], []
-            for t in ts[:8]:
-                n = t["test_name"]
-                names.append((n[:12] + "…") if len(n) > 12 else n)
-                avgs.append(t["average_score"])
-            self._bar.set_data(names, avgs, "#42A5F5")
-        except APIError:
-            pass
+    def _apply_test_chart(self, ts):
+        if not ts:
+            return
+        names, avgs = [], []
+        for t in ts[:8]:
+            n = t["test_name"]
+            names.append((n[:12] + "…") if len(n) > 12 else n)
+            avgs.append(t["average_score"])
+        self._bar.set_data(names, avgs, "#42A5F5")
 
-    def _load_top_students(self):
+    def _load_top_students(self, students):
         try:
-            students = api.get_top_students()
             self._table.setRowCount(len(students))
 
             for row, s in enumerate(students):
