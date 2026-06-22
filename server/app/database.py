@@ -13,14 +13,25 @@ _db_logger = logging.getLogger("exam_server.db")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 if DATABASE_URL:
-    # Railway / cloud PostgreSQL
+    # Render PostgreSQL — pg8000 driver (Python ssl, not libpq)
     if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    if "sslmode" not in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL + "?sslmode=require"
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+    # Strip sslmode from URL (pg8000 uses ssl_context)
+    if "?" in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.split("?")[0]
+    import ssl as _ssl
+    _ssl_ctx = _ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = _ssl.CERT_NONE
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args={"ssl_context": _ssl_ctx},
+    )
     _is_sqlite = False
-    _db_logger.warning("✅ DATABASE: PostgreSQL ishlatilmoqda (Railway)")
+    _db_logger.warning("✅ DATABASE: PostgreSQL ishlatilmoqda (pg8000)")
 else:
     # Local SQLite
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
