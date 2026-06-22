@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QFrame,
     QGraphicsDropShadowEffect, QToolButton
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import (
     QFont, QColor, QPainter,
     QLinearGradient, QRadialGradient, QBrush, QPen
@@ -18,6 +18,22 @@ from ..config import Config
 # ─────────────────────────────────────────────────────────────────────────────
 # Login thread
 # ─────────────────────────────────────────────────────────────────────────────
+
+class WarmupThread(QThread):
+    done = pyqtSignal()
+
+    def __init__(self, server_url):
+        super().__init__()
+        self.server_url = server_url
+
+    def run(self):
+        try:
+            import requests
+            requests.get(f"{self.server_url}/health", timeout=60)
+        except Exception:
+            pass
+        self.done.emit()
+
 
 class LoginThread(QThread):
     success = pyqtSignal(dict)
@@ -128,7 +144,12 @@ class LoginWindow(QMainWindow):
         self.setWindowTitle("Smart Exam System — Kirish")
         self.setMinimumSize(800, 560)
         self._thread = None
+        self._warmup = None
+        self._slow_timer = QTimer(self)
+        self._slow_timer.setSingleShot(True)
+        self._slow_timer.timeout.connect(self._show_waking_msg)
         self._build()
+        self._start_warmup()
 
     # ── UI qurilishi ──────────────────────────────────────────────────────────
 
@@ -332,6 +353,20 @@ class LoginWindow(QMainWindow):
         self._eye.setText("Yashir" if checked else "Ko'rsat")
         self._place_eye()
 
+    # ── Server pre-warm ───────────────────────────────────────────────────────
+
+    def _start_warmup(self):
+        server = Config.server_url()
+        if not server:
+            return
+        self._warmup = WarmupThread(server)
+        self._warmup.start()
+
+    def _show_waking_msg(self):
+        if self.login_btn.isEnabled():
+            return
+        self.login_btn.setText("Server uyg'onmoqda… ⏳ (30-60 sek)")
+
     # ── Login mantiq ─────────────────────────────────────────────────────────
 
     def _do_login(self):
@@ -352,6 +387,7 @@ class LoginWindow(QMainWindow):
         self.login_btn.setEnabled(False)
         self.login_btn.setText("Kirilmoqda…")
         self.err_frame.setVisible(False)
+        self._slow_timer.start(4000)
 
         self._thread = LoginThread(server, user, passw)
         self._thread.success.connect(self._on_success)
@@ -359,11 +395,13 @@ class LoginWindow(QMainWindow):
         self._thread.start()
 
     def _on_success(self, result: dict):
+        self._slow_timer.stop()
         self.login_btn.setEnabled(True)
         self.login_btn.setText("Kirish")
         self.login_success.emit(result.get("role", ""))
 
     def _on_error(self, msg: str):
+        self._slow_timer.stop()
         self.login_btn.setEnabled(True)
         self.login_btn.setText("Kirish")
         self._err(msg)
