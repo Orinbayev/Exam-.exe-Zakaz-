@@ -15,31 +15,32 @@ from PyQt6.QtGui import (
     QFont, QColor, QPainter, QPen, QBrush,
     QLinearGradient, QRadialGradient,
 )
+from ...i18n import ts
 
 
 # ── Baho konfiguratsiya — yorqin, shod ranglar ───────────────────────────────
 
 GRADE_CFG = {
     5: dict(
-        emoji="🏆", label="AJOYIB!",
+        emoji="🏆", label="ОТЛИЧНО!",
         cr=255, cg=214, cb=0,              # oltin
         bg1=(120, 75, 0), bg2=(180, 120, 0),   # iliq oltin-jigarrang
         accent=(255, 235, 59),
     ),
     4: dict(
-        emoji="⭐", label="YAXSHI!",
+        emoji="⭐", label="ХОРОШО!",
         cr=0, cg=210, cb=255,              # yorqin moviy
         bg1=(0, 70, 110), bg2=(0, 110, 165),   # okean ko'k
         accent=(100, 230, 255),
     ),
     3: dict(
-        emoji="👍", label="QONIQARLI",
+        emoji="👍", label="УДОВЛЕТВОРИТЕЛЬНО",
         cr=255, cg=145, cb=0,              # to'q sariq-to'q
         bg1=(130, 65, 0), bg2=(190, 95, 0),    # iliq to'q sariq
         accent=(255, 185, 55),
     ),
     2: dict(
-        emoji="📖", label="QONIQARSIZ",
+        emoji="📖", label="НЕУДОВЛЕТВОРИТЕЛЬНО",
         cr=255, cg=80, cb=130,             # pushti-qizil
         bg1=(110, 10, 80), bg2=(160, 20, 115), # yorqin to'q pushti
         accent=(255, 130, 170),
@@ -331,7 +332,7 @@ class ResultWindow(QMainWindow):
         ar, ag, ab     = g["accent"]
 
         # ── Oyna ──────────────────────────────────────────────────────────────
-        self.setWindowTitle("🏆 Natija")
+        self.setWindowTitle(ts("res.window_title"))
         self.resize(840, 700)
         self.setMinimumSize(640, 520)
         sc = self.screen().availableGeometry()
@@ -486,10 +487,10 @@ class ResultWindow(QMainWindow):
         mid.addWidget(ring, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         sc_col = QVBoxLayout(); sc_col.setSpacing(9)
-        sc_col.addWidget(make_stat("✅", "To'g'ri javoblar",    str(correct), 0,   230, 118))
-        sc_col.addWidget(make_stat("❌", "Noto'g'ri javoblar",  str(wrong),   255,  82,  82))
-        sc_col.addWidget(make_stat("⬜", "O'tkazib yuborilgan", str(skipped), 255, 214,  64))
-        sc_col.addWidget(make_stat("⏱", "Sarflangan vaqt",     f"{mm}:{ss:02d}", 66, 165, 245))
+        sc_col.addWidget(make_stat("✅", "Правильных ответов",  str(correct), 0,   230, 118))
+        sc_col.addWidget(make_stat("❌", "Неправильных",        str(wrong),   255,  82,  82))
+        sc_col.addWidget(make_stat("⬜", "Пропущено",           str(skipped), 255, 214,  64))
+        sc_col.addWidget(make_stat("⏱", "Затраченное время",   f"{mm}:{ss:02d}", 66, 165, 245))
         mid.addLayout(sc_col, stretch=1)
         vl.addLayout(mid)
 
@@ -499,17 +500,17 @@ class ResultWindow(QMainWindow):
         answers_data = self._r.get("answers", [])
         if answers_data:
             sh_row = QHBoxLayout()
-            sh_title = QLabel("📋  Har bir savol natijasi")
+            sh_title = QLabel("📋  Результаты по каждому вопросу")
             sh_title.setFont(QFont("Arial", 13, QFont.Weight.Bold))
             sh_title.setStyleSheet("color:rgba(255,255,255,220); background:transparent; border:none;")
             sh_row.addWidget(sh_title)
             sh_row.addStretch()
 
-            leg_ok  = QLabel("  ✓ To'g'ri")
+            leg_ok  = QLabel("  ✓ Верно")
             leg_ok.setStyleSheet("color:rgb(0,230,118); background:transparent; border:none; font-size:12px; font-weight:bold;")
-            leg_wr  = QLabel("  ✗ Noto'g'ri")
+            leg_wr  = QLabel("  ✗ Неверно")
             leg_wr.setStyleSheet("color:rgb(255,82,82); background:transparent; border:none; font-size:12px; font-weight:bold;")
-            leg_sk  = QLabel("  — O'tkazilgan")
+            leg_sk  = QLabel("  — Пропущено")
             leg_sk.setStyleSheet("color:rgb(255,214,64); background:transparent; border:none; font-size:12px; font-weight:bold;")
             sh_row.addWidget(leg_ok); sh_row.addWidget(leg_wr); sh_row.addWidget(leg_sk)
             vl.addLayout(sh_row)
@@ -553,14 +554,14 @@ class ResultWindow(QMainWindow):
 
             # Xulosa
             if correct == total:
-                msg = f"🎉  Barcha {total} ta savolga to'g'ri javob berdingiz!"
+                msg = f"🎉  Вы ответили правильно на все {total} вопросов!"
                 mc  = "rgb(0,230,118)"
             elif correct == 0:
-                msg = f"📚  {total} ta savolning birontasiga to'g'ri javob berilmadi."
+                msg = f"📚  Ни один из {total} вопросов не был отвечен правильно."
                 mc  = "rgb(255,82,82)"
             else:
-                msg = (f"✅ {correct} ta to'g'ri   ❌ {wrong} ta noto'g'ri"
-                       + (f"   ⬜ {skipped} ta o'tkazilgan" if skipped else ""))
+                msg = (f"✅ {correct} верно   ❌ {wrong} неверно"
+                       + (f"   ⬜ {skipped} пропущено" if skipped else ""))
                 mc = "rgba(255,255,255,200)"
 
             sum_lbl = QLabel(msg)
@@ -572,7 +573,7 @@ class ResultWindow(QMainWindow):
         # ══════════════════════════════════════════════════════════════════════
         # 5) TUGMA — "Bosh sahifa"
         # ══════════════════════════════════════════════════════════════════════
-        home_btn = QPushButton("🏠   Bosh sahifaga qaytish")
+        home_btn = QPushButton("🏠   На главную")
         home_btn.setFixedHeight(62)
         home_btn.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         home_btn.setCursor(Qt.CursorShape.PointingHandCursor)

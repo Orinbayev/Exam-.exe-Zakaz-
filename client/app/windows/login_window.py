@@ -13,6 +13,7 @@ from PyQt6.QtGui import (
 )
 from ..api_client import api, APIError
 from ..config import Config
+from ..i18n import t
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -141,7 +142,7 @@ class LoginWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Smart Exam System — Kirish")
+        self.setWindowTitle(t("login.window_title"))
         self.setMinimumSize(800, 560)
         self._thread = None
         self._warmup = None
@@ -203,13 +204,13 @@ class LoginWindow(QMainWindow):
         root.addSpacing(20)
 
         # ── Sarlavha ──────────────────────────────────────────────────────────
-        title = QLabel("Smart Exam System")
+        title = QLabel(t("login.title"))
         title.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("color: white; background: transparent;")
         root.addWidget(title)
 
-        sub = QLabel("Tizimga kirish")
+        sub = QLabel(t("login.subtitle"))
         sub.setFont(QFont("Segoe UI", 11))
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub.setStyleSheet("color: #546E7A; background: transparent; margin-top: 2px;")
@@ -234,18 +235,18 @@ class LoginWindow(QMainWindow):
         cl.setSpacing(14)
 
         # Server IP
-        srv_w, self.server_input = _input_block("🌐  Server IP manzili")
-        self.server_input.setPlaceholderText("https://exam-exe-zakaz-production.up.railway.app")
+        srv_w, self.server_input = _input_block(t("login.server_label"))
+        self.server_input.setPlaceholderText("https://exam-server-vq86.onrender.com")
         self.server_input.setText(Config.server_url())
         cl.addWidget(srv_w)
 
         # Username
-        usr_w, self.username_input = _input_block("👤  Foydalanuvchi nomi")
-        self.username_input.setPlaceholderText("username kiriting")
+        usr_w, self.username_input = _input_block(t("login.user_label"))
+        self.username_input.setPlaceholderText("username")
         cl.addWidget(usr_w)
 
         # Password
-        pwd_w, self.password_input = _input_block("🔒  Parol")
+        pwd_w, self.password_input = _input_block(t("login.pass_label"))
         self.password_input.setPlaceholderText("••••••••")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.returnPressed.connect(self._do_login)
@@ -253,7 +254,7 @@ class LoginWindow(QMainWindow):
         self._eye = QToolButton(self.password_input)
         self._eye.setCursor(Qt.CursorShape.PointingHandCursor)
         self._eye.setCheckable(True)
-        self._eye.setText("Ko'rsat")
+        self._eye.setText(t("login.show"))
         self._eye.setStyleSheet("""
             QToolButton {
                 background: transparent; border: none;
@@ -286,7 +287,7 @@ class LoginWindow(QMainWindow):
         cl.addWidget(self.err_frame)
 
         # Kirish tugmasi
-        self.login_btn = QPushButton("Kirish")
+        self.login_btn = QPushButton(t("login.btn"))
         self.login_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.login_btn.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         self.login_btn.setMinimumHeight(48)
@@ -321,7 +322,7 @@ class LoginWindow(QMainWindow):
         root.addSpacing(12)
 
         # ── Footer ────────────────────────────────────────────────────────────
-        footer = QLabel("Smart Exam System  •  v1.0.0")
+        footer = QLabel(t("login.footer"))
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setFont(QFont("Segoe UI", 9))
         footer.setStyleSheet("color: rgba(255,255,255,0.22); background: transparent;")
@@ -350,7 +351,7 @@ class LoginWindow(QMainWindow):
         self.password_input.setEchoMode(
             QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
         )
-        self._eye.setText("Yashir" if checked else "Ko'rsat")
+        self._eye.setText(t("login.hide") if checked else t("login.show"))
         self._place_eye()
 
     # ── Server pre-warm ───────────────────────────────────────────────────────
@@ -365,7 +366,7 @@ class LoginWindow(QMainWindow):
     def _show_waking_msg(self):
         if self.login_btn.isEnabled():
             return
-        self.login_btn.setText("Server uyg'onmoqda… ⏳ (30-60 sek)")
+        self.login_btn.setText(t("login.waking"))
 
     # ── Login mantiq ─────────────────────────────────────────────────────────
 
@@ -375,17 +376,17 @@ class LoginWindow(QMainWindow):
         passw  = self.password_input.text()
 
         if not server:
-            return self._err("Server IP manzilini kiriting!")
+            return self._err(t("login.err_server"))
         if not user:
-            return self._err("Foydalanuvchi nomini kiriting!")
+            return self._err(t("login.err_user"))
         if not passw:
-            return self._err("Parolni kiriting!")
+            return self._err(t("login.err_pass"))
 
         if not server.startswith("http"):
             server = f"http://{server}"
 
         self.login_btn.setEnabled(False)
-        self.login_btn.setText("Kirilmoqda…")
+        self.login_btn.setText(t("login.loading"))
         self.err_frame.setVisible(False)
         self._slow_timer.start(4000)
 
@@ -397,13 +398,13 @@ class LoginWindow(QMainWindow):
     def _on_success(self, result: dict):
         self._slow_timer.stop()
         self.login_btn.setEnabled(True)
-        self.login_btn.setText("Kirish")
+        self.login_btn.setText(t("login.btn"))
         self.login_success.emit(result.get("role", ""))
 
     def _on_error(self, msg: str):
         self._slow_timer.stop()
         self.login_btn.setEnabled(True)
-        self.login_btn.setText("Kirish")
+        self.login_btn.setText(t("login.btn"))
         self._err(msg)
 
     def _err(self, msg: str):

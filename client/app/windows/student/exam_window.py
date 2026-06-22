@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QRectF
 from PyQt6.QtGui import QFont, QColor, QPainter, QPen, QBrush, QLinearGradient
+from ...i18n import ts
 
 
 # ── Javob ranglari — yorqin, to'yingan ───────────────────────────────────────
@@ -154,7 +155,7 @@ class ExamWindow(QMainWindow):
     def _build(self):
         total = len(self.qs)
 
-        self.setWindowTitle(f"Imtihon: {self.name}")
+        self.setWindowTitle(ts("exam.window_title", name=self.name))
         self.resize(980, 700)
         self.setMinimumSize(800, 580)
         scr = self.screen().availableGeometry()
@@ -248,7 +249,7 @@ class ExamWindow(QMainWindow):
         nav_lay.setContentsMargins(18, 7, 18, 7)
         nav_lay.setSpacing(8)
 
-        n_lbl = QLabel("Savollar:")
+        n_lbl = QLabel(ts("exam.questions"))
         n_lbl.setFont(QFont("Arial", 9))
         n_lbl.setStyleSheet("color:rgba(255,255,255,0.50);")
         nav_lay.addWidget(n_lbl)
@@ -357,7 +358,7 @@ class ExamWindow(QMainWindow):
         bot_lay.setContentsMargins(22, 9, 22, 9)
         bot_lay.setSpacing(12)
 
-        self._prev = QPushButton("◀   Oldingi")
+        self._prev = QPushButton(ts("exam.prev"))
         self._prev.setFixedSize(150, 46)
         self._prev.setFont(QFont("Arial", 13, QFont.Weight.Bold))
         self._prev.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -370,12 +371,12 @@ class ExamWindow(QMainWindow):
         """)
         self._prev.clicked.connect(self._go_prev)
 
-        hint = QLabel("[1–4] javob  ·  [←→] o'tish  ·  [Esc] chiqish")
+        hint = QLabel(ts("exam.hint"))
         hint.setFont(QFont("Arial", 10))
         hint.setStyleSheet("color:rgba(255,255,255,0.40);")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self._next = QPushButton("Keyingi   ▶")
+        self._next = QPushButton(ts("exam.next"))
         self._next.setFixedSize(180, 46)
         self._next.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         self._next.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -422,7 +423,7 @@ class ExamWindow(QMainWindow):
 
         self._cnt.setText(f"{self.idx+1} / {total}")
         self._pbar.setValue(self.idx+1)
-        self._qnum.setText(f"SAVOL  {self.idx+1}  /  {total}")
+        self._qnum.setText(ts("exam.question_lbl", i=self.idx+1, total=total))
         self._qtxt.setText(q["text"])
 
         for l, b in self._btns.items():
@@ -439,15 +440,15 @@ class ExamWindow(QMainWindow):
 
         is_last = (self.idx == total - 1)
         self._prev.setEnabled(self.idx > 0)
-        self._next.setText("✅   Yakunlash" if is_last else "Keyingi   ▶")
+        self._next.setText(ts("exam.finish") if is_last else ts("exam.next"))
         self._next.setStyleSheet(self._next_style(last=is_last))
         self._next.setEnabled(True)
 
         if sel:
-            self._status.setText(f"✅   {sel} variantini tanladingiz — davom eting")
+            self._status.setText(ts("exam.status_sel", l=sel))
             self._status.setStyleSheet("color:#00E676;background:transparent;font-weight:bold;")
         else:
-            self._status.setText("Javob tanlang  ·  yoki «Keyingi» ni bosib o'tkazib yuboring")
+            self._status.setText(ts("exam.status_none"))
             self._status.setStyleSheet("color:rgba(255,255,255,0.45);background:transparent;")
 
     # ── Javob ─────────────────────────────────────────────────────────────────
@@ -520,8 +521,7 @@ class ExamWindow(QMainWindow):
 
     def _exit(self):
         r = QMessageBox.question(
-            self, "Imtihondan chiqish",
-            "⚠️  Imtihondan chiqmoqchimisiz?\nJavoblaringiz yo'qoladi!",
+            self, ts("exam.exit_title"), ts("exam.exit_msg"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if r == QMessageBox.StandardButton.Yes:
@@ -544,15 +544,11 @@ class ExamWindow(QMainWindow):
             if len(unanswered) > 15:
                 nums += " ..."
             dlg = QMessageBox(self)
-            dlg.setWindowTitle("⚠️  Javobsiz savollar!")
-            dlg.setText(
-                f"<b>{len(unanswered)} ta savolga javob bermadingiz.</b><br><br>"
-                f"Javobsiz raqamlar: <b>{nums}</b><br><br>"
-                "Shunga qaramay yakunlashni tasdiqlaysizmi?"
-            )
+            dlg.setWindowTitle(ts("exam.unanswered_title"))
+            dlg.setText(ts("exam.unanswered", n=len(unanswered), nums=nums))
             dlg.setIcon(QMessageBox.Icon.Warning)
-            yes = dlg.addButton("✅  Ha, yakunlayman",   QMessageBox.ButtonRole.YesRole)
-            dlg.addButton("↩  Qaytib javob beraman", QMessageBox.ButtonRole.NoRole)
+            yes = dlg.addButton(ts("exam.btn_finish"), QMessageBox.ButtonRole.YesRole)
+            dlg.addButton(ts("exam.btn_back"), QMessageBox.ButtonRole.NoRole)
             dlg.exec()
             if dlg.clickedButton() != yes:
                 return
@@ -563,11 +559,10 @@ class ExamWindow(QMainWindow):
         self._timer.stop()
         if timeout:
             QMessageBox.information(
-                self, "⏰ Vaqt tugadi",
-                "Imtihon vaqti tugadi!\nNatijalar hisoblanmoqda...",
+                self, ts("exam.timeout_title"), ts("exam.timeout_msg"),
             )
         self._next.setEnabled(False)
-        self._next.setText("⏳  Yuklanmoqda...")
+        self._next.setText(ts("exam.loading"))
 
         self._thread = FinishThread(self.sid, self.answers)
         self._thread.ok.connect(self._done)
@@ -583,6 +578,6 @@ class ExamWindow(QMainWindow):
     def _fail(self, msg: str):
         is_last = (self.idx == len(self.qs) - 1)
         self._next.setEnabled(True)
-        self._next.setText("✅   Yakunlash" if is_last else "Keyingi   ▶")
+        self._next.setText(ts("exam.finish") if is_last else ts("exam.next"))
         self._next.setStyleSheet(self._next_style(last=is_last))
-        QMessageBox.critical(self, "Xato", f"Natijalar yuborishda xato:\n{msg}")
+        QMessageBox.critical(self, ts("common.error") if False else "Ошибка", ts("exam.err_send", msg=msg))

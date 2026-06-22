@@ -11,6 +11,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import QFont, QGuiApplication
 from ...api_client import api, APIError
 from ...styles import MAIN_STYLE, COLORS
+from ...i18n import t
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -90,8 +91,7 @@ class TeacherDashboard(QMainWindow):
         super().__init__()
         self.is_superadmin = is_superadmin
         self._collapsed = False
-        _role = "Super Admin" if is_superadmin else "O'qituvchi"
-        self.setWindowTitle(f"Smart Exam System — {_role} paneli")
+        self.setWindowTitle(t("dash.win_super") if is_superadmin else t("dash.win_teacher"))
         self.setMinimumSize(900, 600)
         self.setStyleSheet(MAIN_STYLE)
         self._setup_ui()
@@ -126,7 +126,7 @@ class TeacherDashboard(QMainWindow):
         top_row.setContentsMargins(4, 0, 0, 0)
         top_row.setSpacing(0)
 
-        self._logo_lbl = QLabel("🎓 Smart Exam")
+        self._logo_lbl = QLabel(t("dash.logo"))
         self._logo_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         self._logo_lbl.setStyleSheet(
             f"color: {COLORS['primary_light']}; padding: 6px 6px; background: transparent;"
@@ -137,7 +137,7 @@ class TeacherDashboard(QMainWindow):
         self._toggle_btn = QPushButton("◀")
         self._toggle_btn.setFixedSize(32, 32)
         self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._toggle_btn.setToolTip("Sidebarni yig'ish / yoyish")
+        self._toggle_btn.setToolTip(t("dash.sidebar_hide"))
         self._toggle_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['primary']};
@@ -162,7 +162,7 @@ class TeacherDashboard(QMainWindow):
         self._sb_lay.addSpacing(4)
 
         # ── Foydalanuvchi info ────────────────────────────────────────────────
-        role_txt = "Super Admin" if self.is_superadmin else "O'qituvchi"
+        role_txt = t("dash.role_super") if self.is_superadmin else t("dash.role_teacher")
         self._user_lbl = QLabel(f"👤 {api.user_name}\n{role_txt}")
         self._user_lbl.setStyleSheet(f"""
             color: {COLORS['text_secondary']};
@@ -177,16 +177,16 @@ class TeacherDashboard(QMainWindow):
 
         # ── Nav tugmalari ─────────────────────────────────────────────────────
         nav_items = [
-            ("📚", "Fan"),
-            ("👥", "O'quvchilar"),
-            ("📊", "Natijalar"),
-            ("📈", "Statistika"),
+            ("📚", t("dash.nav_fan")),
+            ("👥", t("dash.nav_students")),
+            ("📊", t("dash.nav_results")),
+            ("📈", t("dash.nav_stats")),
         ]
         if self.is_superadmin:
             nav_items += [
-                ("👤", "Foydalanuvchilar"),
-                ("⚙️", "Sozlamalar"),
-                ("📋", "Audit log"),
+                ("👤", t("dash.nav_users")),
+                ("⚙️", t("dash.nav_settings")),
+                ("📋", t("dash.nav_audit")),
             ]
 
         self.nav_buttons: list[NavButton] = []
@@ -199,7 +199,7 @@ class TeacherDashboard(QMainWindow):
         self._sb_lay.addStretch()
 
         # ── O'quvchi rejimi ───────────────────────────────────────────────────
-        self._student_mode_btn = QPushButton("  🖥️  O'quvchi rejimi")
+        self._student_mode_btn = QPushButton(t("dash.student_mode"))
         self._student_mode_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['accent']};
@@ -214,7 +214,7 @@ class TeacherDashboard(QMainWindow):
         self._sb_lay.addSpacing(4)
 
         # ── Chiqish ───────────────────────────────────────────────────────────
-        self._logout_btn = QPushButton("  🚪  Chiqish")
+        self._logout_btn = QPushButton(t("dash.logout"))
         self._logout_btn.setObjectName("secondary")
         self._logout_btn.clicked.connect(self._logout)
         self._sb_lay.addWidget(self._logout_btn)
@@ -287,7 +287,7 @@ class TeacherDashboard(QMainWindow):
         if self._collapsed:
             self._logo_lbl.setVisible(False)
             self._user_lbl.setVisible(False)
-            self._student_mode_btn.setText("🖥️")
+            self._student_mode_btn.setText(t("dash.student_mode_s"))
             self._student_mode_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: {COLORS['accent']};
@@ -297,7 +297,7 @@ class TeacherDashboard(QMainWindow):
                 }}
                 QPushButton:hover {{ background: {COLORS['accent_light']}; }}
             """)
-            self._logout_btn.setText("🚪")
+            self._logout_btn.setText(t("dash.logout_s"))
             self._logout_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: {COLORS['bg_light']};
@@ -316,7 +316,7 @@ class TeacherDashboard(QMainWindow):
         else:
             self._logo_lbl.setVisible(True)
             self._user_lbl.setVisible(True)
-            self._student_mode_btn.setText("  🖥️  O'quvchi rejimi")
+            self._student_mode_btn.setText(t("dash.student_mode"))
             self._student_mode_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: {COLORS['accent']};
@@ -326,7 +326,7 @@ class TeacherDashboard(QMainWindow):
                 }}
                 QPushButton:hover {{ background: {COLORS['accent_light']}; }}
             """)
-            self._logout_btn.setText("  🚪  Chiqish")
+            self._logout_btn.setText(t("dash.logout"))
             self._logout_btn.setObjectName("secondary")
             self._logout_btn.setStyleSheet("")
             self._toggle_btn.setText("◀")
@@ -355,7 +355,7 @@ class TeacherDashboard(QMainWindow):
 
     def _logout(self):
         r = QMessageBox.question(
-            self, "Chiqish", "Tizimdan chiqmoqchimisiz?",
+            self, t("dash.logout_title"), t("dash.logout_q"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if r == QMessageBox.StandardButton.Yes:

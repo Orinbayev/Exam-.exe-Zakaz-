@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
+from ...i18n import t, get_lang, set_lang
 
 
 # ── Users Widget ──────────────────────────────────────────────────────────────
@@ -543,6 +544,40 @@ class SettingsWidget(QWidget):
 
         root.addWidget(par_frame)
 
+        # ── Card 3: Til / Язык ────────────────────────────────────────────────
+        lang_frame, lang_lay = _settings_card("🌐", t("lang.title"), COLORS["success_light"])
+
+        lang_row = QHBoxLayout()
+        lang_lbl = QLabel(t("lang.label"))
+        lang_lbl.setFixedWidth(160)
+        lang_lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 12px;"
+            f" font-weight: 600; background: transparent;"
+        )
+        self._lang_combo = QComboBox()
+        self._lang_combo.addItem(t("lang.uz"), "uz")
+        self._lang_combo.addItem(t("lang.ru"), "ru")
+        cur = get_lang()
+        self._lang_combo.setCurrentIndex(0 if cur == "uz" else 1)
+        lang_row.addWidget(lang_lbl)
+        lang_row.addWidget(self._lang_combo)
+        lang_row.addStretch()
+        lang_lay.addLayout(lang_row)
+
+        lang_save_btn = QPushButton("✅  " + t("common.save").replace("✅  ", ""))
+        lang_save_btn.setObjectName("success")
+        lang_save_btn.setFixedSize(160, 36)
+        lang_save_btn.clicked.connect(self._save_lang)
+        lang_lay.addWidget(lang_save_btn)
+
+        self._lang_status = QLabel("")
+        self._lang_status.setStyleSheet(
+            f"color: {COLORS['success_light']}; font-size: 11px; background: transparent;"
+        )
+        lang_lay.addWidget(self._lang_status)
+
+        root.addWidget(lang_frame)
+
         # ── Save row ─────────────────────────────────────────────────────────
         save_row = QHBoxLayout()
         save_row.addStretch()
@@ -586,6 +621,23 @@ class SettingsWidget(QWidget):
         except APIError as e:
             self.status_label.setText(f"❌  Xato: {e}")
             self.status_label.setStyleSheet(f"color: {COLORS['danger_light']}; font-size: 12px;")
+
+    def _save_lang(self):
+        lang = self._lang_combo.currentData()
+        set_lang(lang)
+        self._lang_status.setText(t("lang.saved"))
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+        from ....main import open_dashboard
+        role = "superadmin"
+        def _reload():
+            for w in QApplication.topLevelWidgets():
+                from ..teacher.dashboard import TeacherDashboard
+                if isinstance(w, TeacherDashboard):
+                    w.close()
+                    break
+            open_dashboard(role)
+        QTimer.singleShot(800, _reload)
 
     def _test_telegram(self):
         try:

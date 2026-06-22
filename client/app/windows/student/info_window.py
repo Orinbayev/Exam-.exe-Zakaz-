@@ -11,6 +11,7 @@ from PyQt6.QtGui import (
     QFont, QColor, QPainter, QLinearGradient, QRadialGradient, QBrush, QPen,
 )
 from ...api_client import api, APIError
+from ...i18n import ts
 
 
 # ── Yorqin gradient fon ───────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ class _StartThread(QThread):
 class StudentInfoWindow(QMainWindow):
     def __init__(self, pre_select: dict = None):
         super().__init__()
-        self.setWindowTitle("Smart Exam — Test Boshlash")
+        self.setWindowTitle(ts("stu.window_title"))
         self._thread    = None
         self._classes:  list = []
         self._students: list = []
@@ -178,7 +179,7 @@ class StudentInfoWindow(QMainWindow):
         panel_lay.addWidget(ico)
         panel_lay.addSpacing(6)
 
-        ttl = QLabel("Test Boshlash")
+        ttl = QLabel(ts("stu.start_title"))
         ttl.setFont(QFont("Segoe UI", 30, QFont.Weight.Bold))
         ttl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ttl.setStyleSheet("""
@@ -188,7 +189,7 @@ class StudentInfoWindow(QMainWindow):
         panel_lay.addWidget(ttl)
         panel_lay.addSpacing(4)
 
-        sub = QLabel("Ma'lumotlaringizni to'ldiring va testni boshlang")
+        sub = QLabel(ts("stu.start_sub"))
         sub.setFont(QFont("Segoe UI", 12))
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub.setStyleSheet("color: rgba(255,255,255,0.65); background: transparent;")
@@ -216,25 +217,25 @@ class StudentInfoWindow(QMainWindow):
         cl.setSpacing(18)
 
         # 1) Sinf
-        cl.addLayout(_label_row("🏫", "Sinf tanlang"))
+        cl.addLayout(_label_row("🏫", ts("stu.class_label")))
         self._cls_combo = QComboBox()
         self._cls_combo.setStyleSheet(COMBO_STYLE)
-        self._cls_combo.addItem("⏳  Yuklanmoqda...", None)
+        self._cls_combo.addItem(ts("stu.class_loading"), None)
         self._cls_combo.currentIndexChanged.connect(self._on_class_change)
         cl.addWidget(self._cls_combo)
 
         # 2) O'quvchi
-        cl.addLayout(_label_row("👤", "O'quvchini tanlang"))
+        cl.addLayout(_label_row("👤", ts("stu.student_label")))
         self._stu_combo = QComboBox()
         self._stu_combo.setStyleSheet(COMBO_STYLE)
-        self._stu_combo.addItem("— Avval sinfni tanlang —", None)
+        self._stu_combo.addItem(ts("stu.student_wait"), None)
         cl.addWidget(self._stu_combo)
 
         # 3) Fan / test
-        cl.addLayout(_label_row("📋", "Fan / Test tanlang"))
+        cl.addLayout(_label_row("📋", ts("stu.test_label")))
         self._tst_combo = QComboBox()
         self._tst_combo.setStyleSheet(COMBO_STYLE)
-        self._tst_combo.addItem("— Avval sinfni tanlang —", None)
+        self._tst_combo.addItem(ts("stu.test_wait"), None)
         cl.addWidget(self._tst_combo)
 
         # Xato banner
@@ -254,14 +255,43 @@ class StudentInfoWindow(QMainWindow):
         panel_lay.addSpacing(20)
 
         # ── Boshlash tugmasi ──────────────────────────────────────────────────
-        self._start_btn = QPushButton("🚀   Testni Boshlash")
+        self._start_btn = QPushButton(ts("stu.start_btn"))
         self._start_btn.setStyleSheet(START_STYLE)
         self._start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._start_btn.clicked.connect(self._start)
         panel_lay.addWidget(self._start_btn)
 
-        panel_lay.addSpacing(14)
-        footer = QLabel("Smart Exam System  •  v1.0")
+        panel_lay.addSpacing(10)
+
+        # ── Orqaga tugmasi ────────────────────────────────────────────────────
+        self._back_btn = QPushButton(ts("stu.back_btn"))
+        self._back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._back_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(255,255,255,0.10);
+                color: rgba(255,255,255,0.65);
+                border: 1.5px solid rgba(255,255,255,0.22);
+                border-radius: 12px;
+                font-size: 13px;
+                font-weight: bold;
+                font-family: 'Segoe UI', Arial;
+                min-height: 40px;
+                padding: 0 20px;
+            }
+            QPushButton:hover {
+                background: rgba(255,255,255,0.18);
+                color: white;
+                border-color: rgba(255,255,255,0.45);
+            }
+            QPushButton:pressed {
+                background: rgba(255,255,255,0.08);
+            }
+        """)
+        self._back_btn.clicked.connect(self.close)
+        panel_lay.addWidget(self._back_btn)
+
+        panel_lay.addSpacing(10)
+        footer = QLabel(ts("stu.footer"))
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setFont(QFont("Segoe UI", 9))
         footer.setStyleSheet("color: rgba(255,255,255,0.25); background: transparent;")
@@ -283,9 +313,9 @@ class StudentInfoWindow(QMainWindow):
             self._classes = api.get_classes_public()
             self._cls_combo.clear()
             if not self._classes:
-                self._cls_combo.addItem("— Aktiv sinf yo'q —", None)
+                self._cls_combo.addItem(ts("stu.class_empty"), None)
             else:
-                self._cls_combo.addItem("— Sinfni tanlang —", None)
+                self._cls_combo.addItem(ts("stu.class_placeholder"), None)
                 for c in self._classes:
                     self._cls_combo.addItem(f"  {c['name']}", c["id"])
 
@@ -297,7 +327,7 @@ class StudentInfoWindow(QMainWindow):
                         break
         except APIError as e:
             self._cls_combo.clear()
-            self._cls_combo.addItem("— Serverga ulanib bo'lmadi —", None)
+            self._cls_combo.addItem(ts("stu.class_error"), None)
             self._show_err(f"Server xatosi: {e}")
 
     def _on_class_change(self):
@@ -308,36 +338,36 @@ class StudentInfoWindow(QMainWindow):
         self._tests    = []
 
         if cls_id is None:
-            self._stu_combo.addItem("— Avval sinfni tanlang —", None)
-            self._tst_combo.addItem("— Avval sinfni tanlang —", None)
+            self._stu_combo.addItem(ts("stu.student_wait"), None)
+            self._tst_combo.addItem(ts("stu.test_wait"), None)
             self._start_btn.setEnabled(False)
             return
 
         try:
             self._students = api.get_students_public(cls_id)
             if not self._students:
-                self._stu_combo.addItem("— Bu sinfda o'quvchi yo'q —", None)
+                self._stu_combo.addItem(ts("stu.student_empty"), None)
             else:
-                self._stu_combo.addItem("— O'quvchini tanlang —", None)
+                self._stu_combo.addItem(ts("stu.student_ph"), None)
                 for s in self._students:
                     self._stu_combo.addItem(f"  {s['last_name']} {s['first_name']}", s["id"])
         except APIError:
-            self._stu_combo.addItem("— Yuklanmadi —", None)
+            self._stu_combo.addItem(ts("stu.student_wait"), None)
 
         try:
             self._tests = api.get_class_fans(cls_id)
             if not self._tests:
-                self._tst_combo.addItem("— Bu sinfga fan biriktirilmagan —", None)
+                self._tst_combo.addItem(ts("stu.test_empty"), None)
                 self._start_btn.setEnabled(False)
             else:
                 self._start_btn.setEnabled(True)
                 for f in self._tests:
                     self._tst_combo.addItem(
-                        f"📚  {f['fan_name']}  ·  ⏱ {f.get('time_limit', 30)} daqiqa",
+                        f"📚  {f['fan_name']}  ·  ⏱ {f.get('time_limit', 30)} мин.",
                         f["test_id"],
                     )
         except APIError:
-            self._tst_combo.addItem("— Fanlar yuklanmadi —", None)
+            self._tst_combo.addItem(ts("stu.test_wait"), None)
             self._start_btn.setEnabled(False)
 
         pre_stu  = self._pre_select.get("stu_id")
@@ -359,28 +389,28 @@ class StudentInfoWindow(QMainWindow):
         cls_id   = self._cls_combo.currentData()
         cls_name = self._cls_combo.currentText().strip()
         if cls_id is None:
-            self._show_err("⚠  Avval sinfni tanlang!")
+            self._show_err(ts("stu.err_class"))
             return
 
         stu_id = self._stu_combo.currentData()
         if stu_id is None:
-            self._show_err("⚠  O'quvchini tanlang!")
+            self._show_err(ts("stu.err_student"))
             return
 
         stu = next((s for s in self._students if s["id"] == stu_id), None)
         if not stu:
-            self._show_err("⚠  O'quvchi topilmadi!")
+            self._show_err(ts("stu.err_notfound"))
             return
 
         test_id = self._tst_combo.currentData()
         if test_id is None:
-            self._show_err("⚠  Testni tanlang!")
+            self._show_err(ts("stu.err_test"))
             return
 
         self._last_select = {"cls_id": cls_id, "stu_id": stu_id, "test_id": test_id}
 
         self._start_btn.setEnabled(False)
-        self._start_btn.setText("⏳   Yuklanmoqda...")
+        self._start_btn.setText(ts("stu.loading_btn"))
         self._err_lbl.hide()
 
         self._thread = _StartThread(test_id, stu["first_name"], stu["last_name"], cls_name)
@@ -396,7 +426,7 @@ class StudentInfoWindow(QMainWindow):
 
     def _on_error(self, msg: str):
         self._start_btn.setEnabled(True)
-        self._start_btn.setText("🚀   Testni Boshlash")
+        self._start_btn.setText(ts("stu.start_btn"))
         self._show_err(msg)
 
     def _show_err(self, msg: str):
