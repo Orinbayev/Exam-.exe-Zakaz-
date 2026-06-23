@@ -11,6 +11,7 @@ from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
+from ...i18n import t
 import os
 
 
@@ -27,20 +28,20 @@ class ResultsWidget(QWidget):
         layout.setSpacing(12)
 
         toolbar = QHBoxLayout()
-        title = QLabel("📊 Natijalar")
+        title = QLabel(t("rw.title"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Ism/familiya qidirish...")
+        self.search_input.setPlaceholderText(t("rw.search_ph"))
         self.search_input.setMaximumWidth(200)
         self.search_input.textChanged.connect(self._apply_filter)
 
         self.filter_combo = QComboBox()
         self.filter_combo.setMaximumWidth(140)
-        self.filter_combo.addItems(["Barchasi", "O'tdi", "Yiqildi"])
+        self.filter_combo.addItems([t("rw.filter_all"), t("rw.filter_pass"), t("rw.filter_fail")])
         self.filter_combo.currentIndexChanged.connect(self._apply_filter)
 
-        export_btn = QPushButton("📥 Excel export")
+        export_btn = QPushButton(t("rw.export_btn"))
         export_btn.setObjectName("success")
         export_btn.clicked.connect(self._export_excel)
 
@@ -59,18 +60,18 @@ class ResultsWidget(QWidget):
 
         # Summary cards
         self.summary_layout = QHBoxLayout()
-        self.total_label = self._make_card("Jami", "0", COLORS["primary"])
-        self.pass_label = self._make_card("O'tdi", "0", COLORS["success"])
-        self.fail_label = self._make_card("Yiqildi", "0", COLORS["danger"])
-        self.avg_label = self._make_card("O'rtacha", "0%", COLORS["accent"])
+        self.total_label = self._make_card(t("rw.card_total"), "0", COLORS["primary"])
+        self.pass_label = self._make_card(t("rw.card_pass"), "0", COLORS["success"])
+        self.fail_label = self._make_card(t("rw.card_fail"), "0", COLORS["danger"])
+        self.avg_label = self._make_card(t("rw.card_avg"), "0%", COLORS["accent"])
         layout.addLayout(self.summary_layout)
 
         # Table
         self.table = QTableWidget()
         self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Sana", "Ism", "Familiya", "Sinf",
-            "Test", "To'g'ri", "Foiz", "Baho", "Natija"
+            t("rw.col_id"), t("rw.col_date"), t("rw.col_name"), t("rw.col_last"), t("rw.col_class"),
+            t("rw.col_test"), t("rw.col_correct"), t("rw.col_pct"), t("rw.col_grade"), t("rw.col_result")
         ])
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 45)
@@ -117,7 +118,7 @@ class ResultsWidget(QWidget):
     def refresh(self):
         self._w_results = ApiWorker(api.get_results)
         self._w_results.done.connect(self._apply_results)
-        self._w_results.error.connect(lambda e: QMessageBox.warning(self, "Xato", e))
+        self._w_results.error.connect(lambda e: QMessageBox.warning(self, t("common.error"), e))
         self._w_results.start()
 
     def _apply_results(self, results):
@@ -146,9 +147,9 @@ class ResultsWidget(QWidget):
             filtered = [r for r in filtered if
                         search in r.get("student_name", "").lower() or
                         search in r.get("student_lastname", "").lower()]
-        if filter_val == "O'tdi":
+        if filter_val == t("rw.filter_pass"):
             filtered = [r for r in filtered if r.get("is_passed")]
-        elif filter_val == "Yiqildi":
+        elif filter_val == t("rw.filter_fail"):
             filtered = [r for r in filtered if not r.get("is_passed")]
 
         self._render_table(filtered)
@@ -169,7 +170,7 @@ class ResultsWidget(QWidget):
                 f"{r.get('correct_count', 0)}/{r.get('total_questions', 0)}",
                 f"{r.get('score_percent', 0):.1f}%",
                 r.get("grade", "—"),
-                "✅ O'tdi" if r.get("is_passed") else "❌ Yiqildi",
+                t("rw.passed") if r.get("is_passed") else t("rw.failed"),
             ]
 
             for col, val in enumerate(items):
@@ -186,16 +187,15 @@ class ResultsWidget(QWidget):
         try:
             excel_bytes = api.export_excel()
             file_path, _ = QFileDialog.getSaveFileName(
-                self, "Excel faylni saqlash", "natijalar.xlsx",
+                self, t("rw.export_btn"), t("rw.export_save_ph"),
                 "Excel Files (*.xlsx)"
             )
             if file_path:
                 with open(file_path, "wb") as f:
                     f.write(excel_bytes)
-                QMessageBox.information(self, "Tayyor", f"Excel fayl saqlandi:\n{file_path}")
-                # Faylni ochish
+                QMessageBox.information(self, t("rw.export_ok"), t("rw.export_saved", path=file_path))
                 os.startfile(file_path) if os.name == "nt" else None
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
         except Exception as e:
-            QMessageBox.critical(self, "Xato", f"Saqlashda xato: {e}")
+            QMessageBox.critical(self, t("common.error"), f"Saqlashda xato: {e}")

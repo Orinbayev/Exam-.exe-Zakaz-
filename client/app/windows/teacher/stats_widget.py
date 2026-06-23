@@ -14,6 +14,7 @@ from PyQt6.QtGui import (
 from ...api_client import api, APIError
 from ...styles import COLORS
 from ...worker import ApiWorker
+from ...i18n import t
 
 
 # ── Bar Chart (QPainter) ──────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ class BarChartWidget(QWidget):
         if not self._values:
             p.setPen(QColor(COLORS["text_secondary"]))
             p.setFont(QFont("Segoe UI", 10))
-            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "Ma'lumot yo'q")
+            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, t("stat.no_data"))
             return
 
         pt, pr, pb, pl = self._PT, self._PR, self._PB, self._PL
@@ -144,7 +145,7 @@ class PieChartWidget(QWidget):
         if not self._values:
             p.setPen(QColor(COLORS["text_secondary"]))
             p.setFont(QFont("Segoe UI", 10))
-            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "Ma'lumot yo'q")
+            p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, t("stat.no_data"))
             return
 
         total = sum(self._values)
@@ -217,7 +218,7 @@ class PieChartWidget(QWidget):
 class AllResultsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Barcha natijalar")
+        self.setWindowTitle(t("stat.all_dlg_title"))
         self.setMinimumSize(1020, 620)
         self._all: list = []
         self._setup_ui()
@@ -229,15 +230,15 @@ class AllResultsDialog(QDialog):
         lay.setContentsMargins(16, 16, 16, 16)
 
         hdr = QHBoxLayout()
-        title = QLabel("📊 Barcha natijalar")
+        title = QLabel(t("stat.all_dlg_lbl"))
         title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
 
         self._search = QLineEdit()
-        self._search.setPlaceholderText("🔍 Ism / familiya / test bo'yicha...")
+        self._search.setPlaceholderText(t("stat.all_search_ph"))
         self._search.setMaximumWidth(260)
         self._search.textChanged.connect(self._filter)
 
-        close_btn = QPushButton("✕ Yopish")
+        close_btn = QPushButton(t("stat.all_close_btn"))
         close_btn.setObjectName("secondary")
         close_btn.clicked.connect(self.accept)
 
@@ -256,8 +257,9 @@ class AllResultsDialog(QDialog):
         self._table = QTableWidget()
         self._table.setColumnCount(9)
         self._table.setHorizontalHeaderLabels([
-            "#", "Sana", "Ism", "Familiya", "Sinf",
-            "Test", "To'g'ri", "Foiz", "Natija",
+            t("stat.all_col_num"), t("stat.all_col_date"), t("stat.all_col_name"),
+            t("stat.all_col_last"), t("stat.all_col_class"), t("stat.all_col_test"),
+            t("stat.all_col_correct"), t("stat.all_col_pct"), t("stat.all_col_result"),
         ])
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
@@ -287,11 +289,11 @@ class AllResultsDialog(QDialog):
             scores = [r.get("score_percent", 0) for r in self._all]
             avg    = sum(scores) / len(scores) if scores else 0
             self._summary.setText(
-                f"Jami: {total} ta  │  O'tdi: {passed} ta  │  "
-                f"Yiqildi: {total - passed} ta  │  O'rtacha: {avg:.1f}%"
+                t("stat.all_summary", total=total, passed=passed,
+                  failed=total-passed, avg=avg)
             )
         except APIError as e:
-            QMessageBox.warning(self, "Xato", str(e))
+            QMessageBox.warning(self, t("common.error"), str(e))
 
     def _filter(self):
         q = self._search.text().lower()
@@ -322,7 +324,7 @@ class AllResultsDialog(QDialog):
                 r.get("test_name", "—"),
                 f"{r.get('correct_count', 0)}/{r.get('total_questions', 0)}",
                 f"{score:.1f}%",
-                "✅ O'tdi" if r.get("is_passed") else "❌ Yiqildi",
+                t("stat.all_passed") if r.get("is_passed") else t("stat.all_failed"),
             ]
             for col, val in enumerate(vals):
                 item = QTableWidgetItem(val)
@@ -343,12 +345,13 @@ class AllResultsDialog(QDialog):
 # ── StatsWidget ───────────────────────────────────────────────────────────────
 
 class StatsWidget(QWidget):
-    _CARDS = [
-        ("total",     "Jami urinishlar", "0",   "#0D47A1", "#42A5F5", "📋"),
-        ("passed",    "O'tdi",           "0",   "#1B5E20", "#66BB6A", "✅"),
-        ("failed",    "Yiqildi",         "0",   "#B71C1C", "#EF5350", "❌"),
-        ("avg",       "O'rtacha ball",   "0%",  "#E65100", "#FFA726", "📊"),
-        ("pass_rate", "O'tish darajasi", "0%",  "#4A148C", "#AB47BC", "🎯"),
+    # Card titles now use t() so we store only the key, fetched in _setup_ui
+    _CARDS_DEF = [
+        ("total",     "stat.card_total",  "0",   "#0D47A1", "#42A5F5", "📋"),
+        ("passed",    "stat.card_passed", "0",   "#1B5E20", "#66BB6A", "✅"),
+        ("failed",    "stat.card_failed", "0",   "#B71C1C", "#EF5350", "❌"),
+        ("avg",       "stat.card_avg",    "0%",  "#E65100", "#FFA726", "📊"),
+        ("pass_rate", "stat.card_rate",   "0%",  "#4A148C", "#AB47BC", "🎯"),
     ]
 
     # Top-3 row colours
@@ -371,9 +374,9 @@ class StatsWidget(QWidget):
 
         # Toolbar
         toolbar = QHBoxLayout()
-        title_lbl = QLabel("📈 Statistika")
+        title_lbl = QLabel(t("stat.title_lbl"))
         title_lbl.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        refresh_btn = QPushButton("🔄 Yangilash")
+        refresh_btn = QPushButton(t("stat.refresh_btn"))
         refresh_btn.setObjectName("secondary")
         refresh_btn.clicked.connect(self.refresh)
         toolbar.addWidget(title_lbl)
@@ -384,8 +387,8 @@ class StatsWidget(QWidget):
         # Summary cards
         cards_row = QHBoxLayout()
         cards_row.setSpacing(10)
-        for key, title, default, c1, c2, icon in self._CARDS:
-            card, val_lbl = self._make_card(title, default, c1, c2, icon)
+        for key, title_key, default, c1, c2, icon in self._CARDS_DEF:
+            card, val_lbl = self._make_card(t(title_key), default, c1, c2, icon)
             self._card_labels[key] = val_lbl
             cards_row.addWidget(card)
         root.addLayout(cards_row)
@@ -393,18 +396,18 @@ class StatsWidget(QWidget):
         # Charts
         charts_row = QHBoxLayout()
         charts_row.setSpacing(12)
-        self._pie = PieChartWidget("Baholar taqsimoti")
-        self._bar = BarChartWidget("Testlar bo'yicha o'rtacha ball (%)", "#42A5F5")
+        self._pie = PieChartWidget(t("stat.chart_pie"))
+        self._bar = BarChartWidget(t("stat.chart_bar"), "#42A5F5")
         charts_row.addWidget(self._pie)
         charts_row.addWidget(self._bar)
         root.addLayout(charts_row)
 
         # Top students header
         top_hdr = QHBoxLayout()
-        top_lbl = QLabel("🏆 Top 10 O'quvchilar")
+        top_lbl = QLabel(t("stat.top_hdr"))
         top_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
 
-        see_all_btn = QPushButton("📋  Hammasi ko'rish")
+        see_all_btn = QPushButton(t("stat.see_all_btn"))
         see_all_btn.setObjectName("secondary")
         see_all_btn.clicked.connect(self._open_all_results)
 
@@ -417,7 +420,8 @@ class StatsWidget(QWidget):
         self._table = QTableWidget()
         self._table.setColumnCount(6)
         self._table.setHorizontalHeaderLabels(
-            ["#", "Ism", "Familiya", "Sinf", "Test", "Ball"]
+            [t("stat.tbl_rank"), t("stat.tbl_name"), t("stat.tbl_last"),
+             t("stat.tbl_class"), t("stat.tbl_test"), t("stat.tbl_score")]
         )
         hdr = self._table.horizontalHeader()
         hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
@@ -498,7 +502,7 @@ class StatsWidget(QWidget):
         }
         grades = sorted(gd.keys())
         self._pie.set_data(
-            [f"Baho {g}" for g in grades],
+            [t("stat.grade_lbl", g=g) for g in grades],
             [gd[g] for g in grades],
             [grade_colors.get(g, "#42A5F5") for g in grades],
         )

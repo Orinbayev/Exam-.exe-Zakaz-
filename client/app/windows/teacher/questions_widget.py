@@ -12,13 +12,14 @@ from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
+from ...i18n import t
 import openpyxl
 
 
 class QuestionDialog(QDialog):
     def __init__(self, categories: list, question: dict = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Savol qo'shish" if not question else "Savolni tahrirlash")
+        self.setWindowTitle(t("q.dialog_add") if not question else t("q.dialog_edit"))
         self.setMinimumWidth(600)
         self.question = question
         self.categories = categories
@@ -34,9 +35,9 @@ class QuestionDialog(QDialog):
         form.setSpacing(10)
 
         self.text_edit = QTextEdit()
-        self.text_edit.setPlaceholderText("Savol matnini kiriting...")
+        self.text_edit.setPlaceholderText(t("q.text_ph"))
         self.text_edit.setMaximumHeight(100)
-        form.addRow("Savol matni *:", self.text_edit)
+        form.addRow(t("q.text_label"), self.text_edit)
 
         self.opt_a = QLineEdit()
         self.opt_a.setPlaceholderText("A variant")
@@ -54,19 +55,19 @@ class QuestionDialog(QDialog):
         self.correct_combo = QComboBox()
         for ch in ["A", "B", "C", "D"]:
             self.correct_combo.addItem(ch)
-        form.addRow("To'g'ri javob *:", self.correct_combo)
+        form.addRow(t("q.correct_label"), self.correct_combo)
 
         self.category_combo = QComboBox()
-        self.category_combo.addItem("-- Kategoriyasiz --", None)
+        self.category_combo.addItem(t("qs.cat_none"), None)
         for cat in self.categories:
             self.category_combo.addItem(cat["name"], cat["id"])
-        form.addRow("Kategoriya:", self.category_combo)
+        form.addRow(t("q.fan_label"), self.category_combo)
 
         self.difficulty_combo = QComboBox()
-        for d in [("Oson", "easy"), ("O'rta", "medium"), ("Qiyin", "hard")]:
+        for d in [(t("q.diff_easy"), "easy"), (t("q.diff_med"), "medium"), (t("q.diff_hard"), "hard")]:
             self.difficulty_combo.addItem(d[0], d[1])
         self.difficulty_combo.setCurrentIndex(1)
-        form.addRow("Qiyinlik:", self.difficulty_combo)
+        form.addRow(t("q.diff_label"), self.difficulty_combo)
 
         layout.addLayout(form)
 
@@ -90,11 +91,11 @@ class QuestionDialog(QDialog):
 
     def _validate_and_accept(self):
         if not self.text_edit.toPlainText().strip():
-            QMessageBox.warning(self, "Xato", "Savol matni bo'sh bo'lishi mumkin emas!")
+            QMessageBox.warning(self, t("common.error"), t("qs.val_warn_text"))
             return
         for field, name in [(self.opt_a, "A"), (self.opt_b, "B"), (self.opt_c, "C"), (self.opt_d, "D")]:
             if not field.text().strip():
-                QMessageBox.warning(self, "Xato", f"{name} variant bo'sh bo'lishi mumkin emas!")
+                QMessageBox.warning(self, t("common.error"), t("qs.val_warn_opt", opt=name))
                 return
         self.accept()
 
@@ -126,33 +127,33 @@ class QuestionsWidget(QWidget):
 
         # Toolbar
         toolbar = QHBoxLayout()
-        title = QLabel("📝 Savollar")
+        title = QLabel(t("qs.title_lbl"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Qidirish...")
+        self.search_input.setPlaceholderText(t("qs.search_ph"))
         self.search_input.setMaximumWidth(220)
         self.search_input.textChanged.connect(self._apply_filter)
 
         self.cat_filter = QComboBox()
         self.cat_filter.setMaximumWidth(160)
-        self.cat_filter.addItem("Barcha kategoriyalar", None)
+        self.cat_filter.addItem(t("qs.all_cats"), None)
         self.cat_filter.currentIndexChanged.connect(self.refresh)
 
-        add_btn = QPushButton("+ Savol qo'shish")
+        add_btn = QPushButton(t("qs.add_btn"))
         add_btn.setObjectName("success")
         add_btn.clicked.connect(self._add_question)
 
-        template_btn = QPushButton("📋 Namuna Excel")
+        template_btn = QPushButton(t("qs.tpl_btn"))
         template_btn.setObjectName("secondary")
-        template_btn.setToolTip("Import uchun namuna Excel faylni yuklab olish")
+        template_btn.setToolTip(t("qs.tpl_btn"))
         template_btn.clicked.connect(self._download_template)
 
-        import_btn = QPushButton("📥 Excel import")
+        import_btn = QPushButton(t("qs.import_btn"))
         import_btn.setObjectName("secondary")
         import_btn.clicked.connect(self._import_excel)
 
-        add_cat_btn = QPushButton("+ Kategoriya")
+        add_cat_btn = QPushButton(t("qs.add_cat_btn"))
         add_cat_btn.setObjectName("secondary")
         add_cat_btn.clicked.connect(self._add_category)
 
@@ -181,7 +182,8 @@ class QuestionsWidget(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(
-            ["ID", "Savol matni", "Kategoriya", "Qiyinlik", "To'g'ri javob", "Sana", "Amallar"]
+            [t("qs.col_id"), t("qs.col_text"), t("qs.col_cat"), t("qs.col_diff"),
+             t("qs.col_correct"), t("qs.col_date"), t("qs.col_actions")]
         )
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 50)
@@ -200,10 +202,10 @@ class QuestionsWidget(QWidget):
         layout.addWidget(self.table)
 
     def refresh(self):
-        self.stats_label.setText("Yuklanmoqda…")
+        self.stats_label.setText(t("qs.loading"))
         self._w_cats = ApiWorker(api.get_categories)
         self._w_cats.done.connect(self._apply_cats)
-        self._w_cats.error.connect(lambda e: self.stats_label.setText(f"Xato: {e}"))
+        self._w_cats.error.connect(lambda e: self.stats_label.setText(f"{t('common.error')}: {e}"))
         self._w_cats.start()
 
     def _apply_cats(self, categories):
@@ -211,7 +213,7 @@ class QuestionsWidget(QWidget):
         current_cat_id = self.cat_filter.currentData()
         self.cat_filter.blockSignals(True)
         self.cat_filter.clear()
-        self.cat_filter.addItem("Barcha kategoriyalar", None)
+        self.cat_filter.addItem(t("qs.all_cats"), None)
         for cat in self.categories:
             self.cat_filter.addItem(cat["name"], cat["id"])
         self.cat_filter.blockSignals(False)
@@ -219,13 +221,13 @@ class QuestionsWidget(QWidget):
         cat_id = self.cat_filter.currentData()
         self._w_qs = ApiWorker(api.get_questions, category_id=cat_id)
         self._w_qs.done.connect(self._apply_questions)
-        self._w_qs.error.connect(lambda e: self.stats_label.setText(f"Xato: {e}"))
+        self._w_qs.error.connect(lambda e: self.stats_label.setText(f"{t('common.error')}: {e}"))
         self._w_qs.start()
 
     def _apply_questions(self, questions):
         self.questions = questions
         self._render_table(self.questions)
-        self.stats_label.setText(f"Jami: {len(self.questions)} ta savol")
+        self.stats_label.setText(t("qs.total", n=len(self.questions)))
 
     def _apply_filter(self):
         search = self.search_input.text().lower()
@@ -235,7 +237,7 @@ class QuestionsWidget(QWidget):
 
     def _render_table(self, questions: list):
         self.table.setRowCount(len(questions))
-        difficulty_labels = {"easy": "🟢 Oson", "medium": "🟡 O'rta", "hard": "🔴 Qiyin"}
+        difficulty_labels = {"easy": t("qs.diff_easy"), "medium": t("qs.diff_med"), "hard": t("qs.diff_hard")}
         cat_map = {c["id"]: c["name"] for c in self.categories}
 
         for row, q in enumerate(questions):
@@ -270,13 +272,13 @@ class QuestionsWidget(QWidget):
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(38, 32)
             edit_btn.setObjectName("table_action")
-            edit_btn.setToolTip("Tahrirlash")
+            edit_btn.setToolTip(t("qs.tip_edit"))
             edit_btn.clicked.connect(lambda _, qid=q["id"]: self._edit_question(qid))
 
             del_btn = QPushButton("🗑️")
             del_btn.setFixedSize(38, 32)
             del_btn.setObjectName("table_action_danger")
-            del_btn.setToolTip("O'chirish")
+            del_btn.setToolTip(t("qs.tip_del"))
             del_btn.clicked.connect(lambda _, qid=q["id"]: self._delete_question(qid))
 
             btn_layout.addWidget(edit_btn)
@@ -290,7 +292,7 @@ class QuestionsWidget(QWidget):
                 api.create_question(dlg.get_data())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _edit_question(self, q_id: int):
         question = next((q for q in self.questions if q["id"] == q_id), None)
@@ -302,28 +304,28 @@ class QuestionsWidget(QWidget):
                 api.update_question(q_id, dlg.get_data())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _delete_question(self, q_id: int):
-        reply = QMessageBox.question(self, "O'chirish",
-                                     "Bu savolni o'chirishni tasdiqlaysizmi?",
+        reply = QMessageBox.question(self, t("qs.del_title"),
+                                     t("qs.del_confirm"),
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 api.delete_question(q_id)
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _add_category(self):
         from PyQt6.QtWidgets import QInputDialog
-        name, ok = QInputDialog.getText(self, "Kategoriya qo'shish", "Kategoriya nomi:")
+        name, ok = QInputDialog.getText(self, t("qs.cat_add_title"), t("qs.cat_add_prompt"))
         if ok and name.strip():
             try:
                 api.create_category(name.strip())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _download_template(self):
         """Savollar import uchun namuna Excel faylni yaratib saqlash."""
@@ -333,8 +335,8 @@ class QuestionsWidget(QWidget):
         from openpyxl.utils import get_column_letter
 
         save_path, _ = QFileDialog.getSaveFileName(
-            self, "Namuna faylni saqlash",
-            "savollar_namuna.xlsx", "Excel (*.xlsx)"
+            self, t("qs.tpl_title"),
+            t("qs.tpl_ph"), "Excel (*.xlsx)"
         )
         if not save_path:
             return
@@ -400,22 +402,19 @@ class QuestionsWidget(QWidget):
         try:
             wb.save(save_path)
             QMessageBox.information(
-                self, "Namuna saqlandi",
-                f"✅ Namuna fayl saqlandi:\n{save_path}\n\n"
-                "Sariq qatorlardagi namunaviy savollarni o'chirib,\n"
-                "o'z savollaringizni kiriting.\n\n"
-                "Keyin 'Excel import' tugmasini bosib yuklang."
+                self, t("qs.tpl_saved_title"),
+                t("qs.tpl_saved_msg", path=save_path)
             )
             import os
             if os.name == "nt":
                 os.startfile(save_path)
         except Exception as e:
-            QMessageBox.critical(self, "Xato", f"Saqlashda xato: {e}")
+            QMessageBox.critical(self, t("qs.err_save"), t("qs.err_save_msg", e=e))
 
     def _import_excel(self):
         """Excel fayldan savollar yuklash."""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Excel fayl tanlang", "", "Excel Files (*.xlsx *.xls)"
+            self, t("qs.import_title"), "", "Excel Files (*.xlsx *.xls)"
         )
         if not file_path:
             return
@@ -448,10 +447,10 @@ class QuestionsWidget(QWidget):
                 except Exception as e:
                     errors.append(f"Qator {row_idx}: {e}")
 
-            msg = f"✅ {imported} ta savol yuklandi."
+            msg = t("qs.import_ok", n=imported)
             if errors:
-                msg += f"\n⚠️ {len(errors)} ta xato:\n" + "\n".join(errors[:5])
-            QMessageBox.information(self, "Import natijasi", msg)
+                msg += t("qs.import_err", n=len(errors)) + "\n".join(errors[:5])
+            QMessageBox.information(self, t("qs.import_result"), msg)
             self.refresh()
         except Exception as e:
-            QMessageBox.critical(self, "Xato", f"Fayl ochishda xato: {e}")
+            QMessageBox.critical(self, t("common.error"), f"Fayl ochishda xato: {e}")

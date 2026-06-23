@@ -13,6 +13,7 @@ from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
+from ...i18n import t
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ _TABLE_STYLE = f"""
 class FanDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Yangi fan qo'shish")
+        self.setWindowTitle(t("fan.dialog_title"))
         self.setFixedSize(440, 290)
         self.setStyleSheet(f"""
             QDialog {{
@@ -154,7 +155,7 @@ class FanDialog(QDialog):
         ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         h_lay.addWidget(ico)
 
-        title_lbl = QLabel("Yangi fan qo'shish")
+        title_lbl = QLabel(t("fan.dialog_title"))
         title_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_lbl.setStyleSheet("color: white; background: transparent;")
@@ -174,13 +175,13 @@ class FanDialog(QDialog):
         b_lay.setContentsMargins(28, 20, 28, 24)
         b_lay.setSpacing(14)
 
-        lbl = QLabel("Fan nomini kiriting:")
+        lbl = QLabel(t("fan.dialog_label"))
         lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
         b_lay.addWidget(lbl)
 
         self.inp = QLineEdit()
-        self.inp.setPlaceholderText("Masalan:  Matematika   yoki   Ona tili")
+        self.inp.setPlaceholderText(t("fan.dialog_ph"))
         self.inp.setFixedHeight(46)
         self.inp.setFont(QFont("Segoe UI", 12))
         self.inp.setStyleSheet(f"""
@@ -206,7 +207,7 @@ class FanDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(12)
 
-        cl_btn = QPushButton("✕   Bekor")
+        cl_btn = QPushButton(t("fan.dialog_cancel"))
         cl_btn.setFixedSize(140, 42)
         cl_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         cl_btn.setStyleSheet(f"""
@@ -226,7 +227,7 @@ class FanDialog(QDialog):
         """)
         cl_btn.clicked.connect(self.reject)
 
-        ok_btn = QPushButton("✅   Saqlash")
+        ok_btn = QPushButton(t("fan.dialog_ok"))
         ok_btn.setFixedSize(160, 42)
         ok_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         ok_btn.setStyleSheet(f"""
@@ -259,7 +260,7 @@ class FanDialog(QDialog):
 
     def _ok(self):
         if not self.inp.text().strip():
-            self.inp.setPlaceholderText("⚠  Fan nomini kiriting!")
+            self.inp.setPlaceholderText(t("fan.empty_warn"))
             self.inp.setStyleSheet(self.inp.styleSheet() +
                 "border: 2px solid #EF5350 !important;")
             return
@@ -277,7 +278,7 @@ class QuestionDialog(QDialog):
     def __init__(self, fan_name: str = "", question: dict = None, parent=None):
         super().__init__(parent)
         self._q = question
-        _action = "Savol qo'shish" if not question else "Savolni tahrirlash"
+        _action = t("q.dialog_add") if not question else t("q.dialog_edit")
         self.setWindowTitle(_action + (f" — {fan_name}" if fan_name else ""))
         self.setFixedWidth(540)
         self.setStyleSheet(_DLG_BASE)
@@ -310,10 +311,10 @@ class QuestionDialog(QDialog):
             return l
 
         # Savol matni
-        lay.addWidget(_lbl("Savol matni *"))
+        lay.addWidget(_lbl(t("q.text_label")))
         self.txt = QTextEdit()
         self.txt.setFixedHeight(90)
-        self.txt.setPlaceholderText("Savol matnini shu yerga kiriting...")
+        self.txt.setPlaceholderText(t("q.text_ph"))
         lay.addWidget(self.txt)
 
         # Variantlar
@@ -339,7 +340,7 @@ class QuestionDialog(QDialog):
             self.opts.append(inp)
 
         # To'g'ri javob
-        lay.addWidget(_lbl("To'g'ri javob *"))
+        lay.addWidget(_lbl(t("q.correct_label")))
         self.answer = QComboBox()
         self.answer.addItems([
             "A  — birinchi variant",
@@ -386,11 +387,11 @@ class QuestionDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
         btn_row.addStretch()
-        cancel = QPushButton("✕  Bekor")
+        cancel = QPushButton(t("fan.dialog_cancel"))
         cancel.setObjectName("cancel")
         cancel.setFixedSize(110, 34)
         cancel.clicked.connect(self.reject)
-        save = QPushButton("✅  Saqlash")
+        save = QPushButton(t("fan.dialog_ok"))
         save.setFixedSize(110, 34)
         save.clicked.connect(self._ok)
         btn_row.addWidget(cancel)
@@ -415,12 +416,12 @@ class QuestionDialog(QDialog):
 
     def _ok(self):
         if not self.txt.toPlainText().strip():
-            QMessageBox.warning(self, "⚠ Xato", "Savol matni bo'sh bo'lishi mumkin emas!")
+            QMessageBox.warning(self, t("common.warning"), t("q.empty_warn"))
             return
         for i, opt in enumerate(self.opts):
             if not opt.text().strip():
-                QMessageBox.warning(self, "⚠ Xato",
-                    f"{chr(65+i)} variant bo'sh bo'lishi mumkin emas!")
+                QMessageBox.warning(self, t("common.warning"),
+                    f"{chr(65+i)} {t('q.opt_warn')}")
                 return
         self.accept()
 
@@ -462,14 +463,12 @@ class FanWidget(QWidget):
 
         # ── Sarlavha ──────────────────────────────────────────────────────────
         hdr = QHBoxLayout()
-        title = QLabel("📚  Fanlar va Savollar")
+        title = QLabel(t("fan.title"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         hdr.addWidget(title)
         hdr.addStretch()
 
-        hint_lbl = QLabel(
-            "💡  Fan yarating → savollar qo'shing → sinfga biriktiring"
-        )
+        hint_lbl = QLabel(t("fan.hint"))
         hint_lbl.setFont(QFont("Segoe UI", 11))
         hint_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         hdr.addWidget(hint_lbl)
@@ -488,10 +487,10 @@ class FanWidget(QWidget):
         ll.setSpacing(10)
 
         l_hdr = QHBoxLayout()
-        l_title = QLabel("📚  Fanlar")
+        l_title = QLabel(t("fan.section_fans"))
         l_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         l_hdr.addWidget(l_title)
-        self._fan_count_lbl = QLabel("0 ta")
+        self._fan_count_lbl = QLabel(t("fan.count", n=0))
         self._fan_count_lbl.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 11px;"
         )
@@ -504,7 +503,7 @@ class FanWidget(QWidget):
         self._fan_list.currentItemChanged.connect(self._on_fan_selected)
         ll.addWidget(self._fan_list)
 
-        add_fan_btn = QPushButton("＋  Fan qo'shish")
+        add_fan_btn = QPushButton(t("fan.add_btn"))
         add_fan_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['success']};
@@ -516,7 +515,7 @@ class FanWidget(QWidget):
         add_fan_btn.clicked.connect(self._add_fan)
         ll.addWidget(add_fan_btn)
 
-        time_btn = QPushButton("⏱  Imtihon vaqtini sozlash")
+        time_btn = QPushButton(t("fan.time_btn"))
         time_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['accent']};
@@ -528,7 +527,7 @@ class FanWidget(QWidget):
         time_btn.clicked.connect(self._set_time_limit)
         ll.addWidget(time_btn)
 
-        del_fan_btn = QPushButton("🗑  Fan o'chirish")
+        del_fan_btn = QPushButton(t("fan.del_btn"))
         del_fan_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['bg_dark']};
@@ -554,7 +553,7 @@ class FanWidget(QWidget):
 
         # O'ng sarlavha
         r_hdr = QHBoxLayout()
-        self._q_title = QLabel("❓  Savollar")
+        self._q_title = QLabel(t("fan.q_section"))
         self._q_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         r_hdr.addWidget(self._q_title)
         r_hdr.addStretch()
@@ -579,9 +578,7 @@ class FanWidget(QWidget):
         rl.addLayout(self._stat_row)
 
         # Bo'sh holat
-        self._empty_lbl = QLabel(
-            "⬅  Chapdan fan tanlang\nSo'ng savol qo'shing"
-        )
+        self._empty_lbl = QLabel(t("fan.empty_select"))
         self._empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_lbl.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 14px; background: transparent;"
@@ -591,7 +588,7 @@ class FanWidget(QWidget):
         self._tbl = QTableWidget()
         self._tbl.setColumnCount(6)
         self._tbl.setHorizontalHeaderLabels(
-            ["#", "Savol matni", "A", "B", "C", "D"]
+            [t("fan.tbl_num"), t("fan.tbl_text"), "A", "B", "C", "D"]
         )
         self._tbl.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.Stretch
@@ -624,7 +621,7 @@ class FanWidget(QWidget):
             }}
         """
 
-        self._add_q_btn = QPushButton("＋  Savol qo'shish")
+        self._add_q_btn = QPushButton(t("fan.add_q_btn"))
         self._add_q_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['success']};
@@ -636,7 +633,7 @@ class FanWidget(QWidget):
         self._add_q_btn.setEnabled(False)
         self._add_q_btn.clicked.connect(self._add_question)
 
-        self._excel_import_btn = QPushButton("📥  Exceldan yuklash")
+        self._excel_import_btn = QPushButton(t("fan.excel_btn"))
         self._excel_import_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['accent']};
@@ -646,15 +643,15 @@ class FanWidget(QWidget):
             QPushButton:hover {{ background: {COLORS['accent_light']}; }}
         """ + _disabled_style)
         self._excel_import_btn.setEnabled(False)
-        self._excel_import_btn.setToolTip("Exceldan ko'plab savollarni bir vaqtda yuklash")
+        self._excel_import_btn.setToolTip(t("fan.excel_btn"))
         self._excel_import_btn.clicked.connect(self._import_excel)
 
-        self._excel_tpl_btn = QPushButton("📄  Namuna Excel")
+        self._excel_tpl_btn = QPushButton(t("fan.excel_tpl"))
         self._excel_tpl_btn.setObjectName("secondary")
-        self._excel_tpl_btn.setToolTip("To'ldirib yuborish uchun namuna fayl yuklab oling")
+        self._excel_tpl_btn.setToolTip(t("fan.excel_tpl"))
         self._excel_tpl_btn.clicked.connect(self._download_template)
 
-        self._show_frozen_btn = QPushButton("❄️  Muzlatilganlarni ko'rsatish")
+        self._show_frozen_btn = QPushButton(t("fan.frozen_btn"))
         self._show_frozen_btn.setObjectName("secondary")
         self._show_frozen_btn.setCheckable(True)
         self._show_frozen_btn.clicked.connect(self._toggle_show_frozen)
@@ -674,7 +671,7 @@ class FanWidget(QWidget):
     # ── Fanlar ────────────────────────────────────────────────────────────────
 
     def refresh(self):
-        self._fan_count_lbl.setText("Yuklanmoqda…")
+        self._fan_count_lbl.setText(t("fan.loading"))
         self._w_fans = ApiWorker(api.get_categories)
         self._w_fans.done.connect(self._apply_fans)
         self._w_fans.error.connect(lambda _: self._apply_fans([]))
@@ -687,7 +684,7 @@ class FanWidget(QWidget):
         for f in self._fans:
             q_count = f.get("question_count", 0)
             t_lim = f.get("time_limit", 30)
-            badge = f"  ·  {q_count} ta savol  ·  ⏱{t_lim} daq"
+            badge = t("fan.badge", q=q_count, t=t_lim)
             item = QListWidgetItem(f"📚  {f['name']}{badge}")
             item.setSizeHint(QSize(0, 48))
             item.setData(Qt.ItemDataRole.UserRole, f["id"])
@@ -695,7 +692,7 @@ class FanWidget(QWidget):
             item.setData(Qt.ItemDataRole.UserRole + 2, t_lim)
             self._fan_list.addItem(item)
         self._fan_list.blockSignals(False)
-        self._fan_count_lbl.setText(f"{len(self._fans)} ta")
+        self._fan_count_lbl.setText(t("fan.count", n=len(self._fans)))
 
         if self._fan_id:
             for i in range(self._fan_list.count()):
@@ -708,7 +705,7 @@ class FanWidget(QWidget):
             return
         self._fan_id = item.data(Qt.ItemDataRole.UserRole)
         self._fan_name = item.data(Qt.ItemDataRole.UserRole + 1)
-        self._q_title.setText(f"❓  {self._fan_name} — Savollar")
+        self._q_title.setText(t("fan.q_title", name=self._fan_name))
         self._add_q_btn.setEnabled(True)
         self._excel_import_btn.setEnabled(True)
         self._load_questions()
@@ -720,12 +717,12 @@ class FanWidget(QWidget):
                 api.create_category(dlg.get_name())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _set_time_limit(self):
         item = self._fan_list.currentItem()
         if not item:
-            QMessageBox.information(self, "Tanlash", "Avval chapdan fan tanlang!")
+            QMessageBox.information(self, t("fan.select_warn"), t("fan.select_hint"))
             return
         fan = next((f for f in self._fans if f["id"] == self._fan_id), None)
         current_time = fan.get("time_limit", 30) if fan else 30
@@ -733,9 +730,8 @@ class FanWidget(QWidget):
         from PyQt6.QtWidgets import QInputDialog
         val, ok = QInputDialog.getInt(
             self,
-            "⏱  Imtihon vaqtini sozlash",
-            f"«{self._fan_name}» fani uchun vaqt (daqiqada):\n"
-            f"(hozir: {current_time} daqiqa)",
+            t("fan.time_btn"),
+            t("fan.time_input", name=self._fan_name, cur=current_time),
             current_time, 1, 300, 1
         )
         if not ok:
@@ -743,24 +739,22 @@ class FanWidget(QWidget):
         try:
             api.set_category_time_limit(self._fan_id, val)
             QMessageBox.information(
-                self, "✅ Saqlandi",
-                f"«{self._fan_name}» uchun imtihon vaqti {val} daqiqaga o'rnatildi.\n\n"
-                "Diqqat: O'zgarish kuchga kirishi uchun sinfga qaytadan fan biriktiring."
+                self, t("fan.save_title"),
+                t("fan.time_saved", name=self._fan_name, val=val)
             )
             self.refresh()
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
 
     def _delete_fan(self):
         item = self._fan_list.currentItem()
         if not item:
-            QMessageBox.information(self, "Tanlash", "Avval chapdan fan tanlang!")
+            QMessageBox.information(self, t("fan.select_warn"), t("fan.select_hint"))
             return
         name = item.data(Qt.ItemDataRole.UserRole + 1)
         r = QMessageBox.question(
-            self, "O'chirish",
-            f"«{name}» fanini o'chirishni tasdiqlaysizmi?\n\n"
-            "Diqqat: Ushbu fandagi barcha savollar ham o'chiriladi!",
+            self, t("fan.del_title"),
+            t("fan.del_confirm", name=name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if r == QMessageBox.StandardButton.Yes:
@@ -768,15 +762,15 @@ class FanWidget(QWidget):
                 api.delete_category(self._fan_id)
                 self._fan_id = None
                 self._fan_name = ""
-                self._q_title.setText("❓  Savollar")
+                self._q_title.setText(t("fan.q_section"))
                 self._q_count_lbl.setText("")
                 self._tbl.hide()
-                self._empty_lbl.setText("⬅  Chapdan fan tanlang\nSo'ng savol qo'shing")
+                self._empty_lbl.setText(t("fan.empty_select"))
                 self._empty_lbl.show()
                 self._add_q_btn.setEnabled(False)
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── Savollar ──────────────────────────────────────────────────────────────
 
@@ -786,14 +780,14 @@ class FanWidget(QWidget):
         try:
             self._questions = api.get_questions(category_id=self._fan_id)
         except APIError as e:
-            QMessageBox.warning(self, "Xato", str(e))
+            QMessageBox.warning(self, t("common.error"), str(e))
             return
         self._render_table()
 
     def _toggle_show_frozen(self):
         self._show_all_frozen = self._show_frozen_btn.isChecked()
-        btn_text = ("❄️  Barchasini ko'rsatish" if self._show_all_frozen
-                    else "❄️  Muzlatilganlarni ko'rsatish")
+        btn_text = (t("fan.frozen_show_all") if self._show_all_frozen
+                    else t("fan.frozen_btn"))
         self._show_frozen_btn.setText(btn_text)
         self._render_table()
 
@@ -807,14 +801,12 @@ class FanWidget(QWidget):
         active_n = sum(1 for q in self._questions if q.get("is_active", True))
         frozen_n = len(self._questions) - active_n
 
-        self._q_count_lbl.setText(f"{len(self._questions)} ta savol")
-        self._stat_active_lbl.setText(
-            f"🟢  Aktiv: {active_n}"
-        )
+        self._q_count_lbl.setText(t("fan.q_count_txt", n=len(self._questions)))
+        self._stat_active_lbl.setText(t("fan.stat_active", n=active_n))
         self._stat_active_lbl.setStyleSheet(
             f"color: {COLORS['success_light']}; background: transparent;"
         )
-        self._stat_frozen_lbl.setText(f"❄️  Muzlatilgan: {frozen_n}")
+        self._stat_frozen_lbl.setText(t("fan.stat_frozen", n=frozen_n))
         self._stat_frozen_lbl.setStyleSheet(
             f"color: {COLORS['text_secondary']}; background: transparent;"
         )
@@ -822,15 +814,9 @@ class FanWidget(QWidget):
         if not rows:
             self._tbl.hide()
             if not self._questions:
-                self._empty_lbl.setText(
-                    f"📭  «{self._fan_name}» fanida hali savol yo'q\n"
-                    "«＋ Savol qo'shish» tugmasini bosing"
-                )
+                self._empty_lbl.setText(t("fan.empty_no_q", name=self._fan_name))
             else:
-                self._empty_lbl.setText(
-                    f"❄️  Barcha savollar muzlatilgan\n"
-                    "«Muzlatilganlarni ko'rsatish» tugmasini bosing"
-                )
+                self._empty_lbl.setText(t("fan.empty_frozen"))
             self._empty_lbl.show()
             return
 
@@ -887,7 +873,7 @@ class FanWidget(QWidget):
         # Avval ustun sonini 7 ga o'rnatamiz
         self._tbl.setColumnCount(7)
         self._tbl.setHorizontalHeaderLabels(
-            ["#", "Savol matni", "A", "B", "C", "D", "Amallar"]
+            [t("fan.tbl_num"), t("fan.tbl_text"), "A", "B", "C", "D", t("fan.tbl_actions")]
         )
         self._tbl.setColumnWidth(6, 120)
         self._tbl.horizontalHeader().setSectionResizeMode(
@@ -906,19 +892,19 @@ class FanWidget(QWidget):
             ed = QPushButton("✏️")
             ed.setFixedSize(34, 30)
             ed.setObjectName("table_action")
-            ed.setToolTip("Tahrirlash")
+            ed.setToolTip(t("fan.tip_edit"))
             ed.clicked.connect(lambda _, qid=q["id"]: self._edit_question(qid))
 
             frz = QPushButton("❄️" if is_active else "✅")
             frz.setFixedSize(34, 30)
             frz.setObjectName("table_action")
-            frz.setToolTip("Muzlatish" if is_active else "Faollashtirish")
+            frz.setToolTip(t("fan.tip_freeze") if is_active else t("fan.tip_activate"))
             frz.clicked.connect(lambda _, qid=q["id"]: self._toggle_question(qid))
 
             dl = QPushButton("🗑️")
             dl.setFixedSize(34, 30)
             dl.setObjectName("table_action_danger")
-            dl.setToolTip("O'chirish")
+            dl.setToolTip(t("fan.tip_delete"))
             dl.clicked.connect(lambda _, qid=q["id"]: self._delete_question(qid))
 
             cly.addWidget(ed)
@@ -936,7 +922,7 @@ class FanWidget(QWidget):
                 self._load_questions()
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _edit_question(self, qid: int):
         q = next((x for x in self._questions if x["id"] == qid), None)
@@ -950,7 +936,7 @@ class FanWidget(QWidget):
                 api.update_question(qid, data)
                 self._load_questions()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _toggle_question(self, qid: int):
         try:
@@ -960,7 +946,7 @@ class FanWidget(QWidget):
                 q["is_active"] = result.get("is_active", not q.get("is_active", True))
             self._render_table()
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
 
     def _delete_question(self, qid: int):
         q = next((x for x in self._questions if x["id"] == qid), None)
@@ -968,8 +954,8 @@ class FanWidget(QWidget):
             return
         short = q["text"][:60] + "..." if len(q["text"]) > 60 else q["text"]
         r = QMessageBox.question(
-            self, "O'chirish",
-            f"Ushbu savolni o'chirishni tasdiqlaysizmi?\n\n«{short}»",
+            self, t("q.del_title"),
+            t("fan.del_q_confirm", text=short),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if r == QMessageBox.StandardButton.Yes:
@@ -978,7 +964,7 @@ class FanWidget(QWidget):
                 self._load_questions()
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── Excel import / namuna ────────────────────────────────────────────────
 
@@ -988,12 +974,12 @@ class FanWidget(QWidget):
             import openpyxl
             from openpyxl.styles import Font, PatternFill, Alignment
         except ImportError:
-            QMessageBox.critical(self, "Xato", "openpyxl kutubxonasi topilmadi!")
+            QMessageBox.critical(self, t("common.error"), "openpyxl kutubxonasi topilmadi!")
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "Namuna Excel faylini saqlash",
-            "savol_namuna.xlsx", "Excel (*.xlsx)"
+            self, t("fan.tpl_save_title"),
+            t("fan.tpl_save_ph"), "Excel (*.xlsx)"
         )
         if not path:
             return
@@ -1064,35 +1050,28 @@ class FanWidget(QWidget):
         try:
             wb.save(path)
         except Exception as e:
-            QMessageBox.critical(self, "Xato", f"Fayl saqlanmadi:\n{e}")
+            QMessageBox.critical(self, t("common.error"), f"Fayl saqlanmadi:\n{e}")
             return
 
         QMessageBox.information(
-            self, "✅  Namuna saqlandi",
-            f"Namuna fayl saqlandi:\n{path}\n\n"
-            "📌  Ko'rsatmalar:\n"
-            "1. Faylni Excel yoki Google Sheets da oching\n"
-            "2. 2-qatordan boshlab o'z savollaringizni kiriting\n"
-            "3. «To'g'ri javob» ustuniga faqat A, B, C yoki D kiriting\n"
-            "4. «Daraja» ustuniga: easy / medium / hard\n"
-            "5. Faylni saqlang, keyin «Exceldan yuklash» tugmasini bosing"
+            self, t("fan.tpl_saved"),
+            t("fan.tpl_saved_msg", path=path)
         )
 
     def _import_excel(self):
         """Exceldan savollarni o'qib API orqali yuklash."""
         if not self._fan_id:
-            QMessageBox.information(self, "Fan tanlanmagan",
-                                    "Avval chapdan fan tanlang!")
+            QMessageBox.information(self, t("fan.no_fan_title"), t("fan.no_fan_hint"))
             return
 
         try:
             import openpyxl
         except ImportError:
-            QMessageBox.critical(self, "Xato", "openpyxl kutubxonasi topilmadi!")
+            QMessageBox.critical(self, t("common.error"), "openpyxl kutubxonasi topilmadi!")
             return
 
         path, _ = QFileDialog.getOpenFileName(
-            self, "Excel faylni tanlang", "",
+            self, t("sw.excel_open_title"), "",
             "Excel fayllar (*.xlsx *.xls)"
         )
         if not path:
@@ -1102,7 +1081,7 @@ class FanWidget(QWidget):
             wb = openpyxl.load_workbook(path, data_only=True)
             ws = wb.active
         except Exception as e:
-            QMessageBox.critical(self, "Fayl ochilmadi", str(e))
+            QMessageBox.critical(self, t("qs.err_open"), str(e))
             return
 
         valid_rows = []
@@ -1143,34 +1122,32 @@ class FanWidget(QWidget):
             })
 
         if not valid_rows:
-            msg = "Faylda yuklanishi mumkin bo'lgan savol topilmadi!\n\n"
+            msg = t("fan.no_q_msg")
             if error_lines:
-                msg += "Xatolar:\n" + "\n".join(error_lines[:8])
+                msg += t("common.error") + ":\n" + "\n".join(error_lines[:8])
             else:
                 msg += "1-qator sarlavha. 2-qatordan boshlab savol kiriting.\n"
                 msg += "«📄 Namuna Excel» tugmasi bilan namuna faylni yuklab oling."
-            QMessageBox.warning(self, "Savol topilmadi", msg)
+            QMessageBox.warning(self, t("fan.no_q_found"), msg)
             return
 
-        confirm_msg = (
-            f"✅  {len(valid_rows)} ta savol yuklanadi  «{self._fan_name}» faniga.\n"
-        )
+        confirm_msg = t("fan.import_confirm", n=len(valid_rows), name=self._fan_name)
         if error_lines:
-            confirm_msg += f"⚠️  {len(error_lines)} ta qatorda xato bor (o'tkazib yuboriladi).\n"
-        confirm_msg += "\nDavom etasizmi?"
+            confirm_msg += t("fan.import_err_rows", n=len(error_lines))
+        confirm_msg += t("fan.import_continue")
 
         if QMessageBox.question(
-            self, "Yuklashni tasdiqlang", confirm_msg,
+            self, t("fan.import_confirm_title"), confirm_msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         ) != QMessageBox.StandardButton.Yes:
             return
 
         # Progress dialog
         progress = QProgressDialog(
-            "Savollar yuklanmoqda...", "Bekor qilish",
+            t("fan.import_loading"), t("fan.import_cancel"),
             0, len(valid_rows), self
         )
-        progress.setWindowTitle("Yuklanmoqda")
+        progress.setWindowTitle(t("fan.loading"))
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumWidth(340)
 
@@ -1183,7 +1160,7 @@ class FanWidget(QWidget):
                 break
             progress.setValue(idx)
             progress.setLabelText(
-                f"Yuklanmoqda... {idx + 1} / {len(valid_rows)}\n{q_data['text'][:60]}"
+                t("fan.import_progress", cur=idx+1, total=len(valid_rows), text=q_data['text'][:60])
             )
             try:
                 api.create_question(q_data)
@@ -1197,9 +1174,9 @@ class FanWidget(QWidget):
         self._load_questions()
         self.refresh()
 
-        result = f"✅  {success_n} ta savol muvaffaqiyatli yuklandi!"
+        result = t("fan.import_ok", n=success_n)
         if fail_n:
-            result += f"\n❌  {fail_n} ta savol yuklanmadi."
+            result += t("fan.import_fail", n=fail_n)
         if error_lines:
-            result += f"\n⚠️  {len(error_lines)} ta qator o'tkazib yuborildi (format xatosi)."
-        QMessageBox.information(self, "Natija", result)
+            result += t("fan.import_skip", n=len(error_lines))
+        QMessageBox.information(self, t("fan.import_result"), result)

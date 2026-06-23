@@ -14,6 +14,7 @@ from ...worker import ApiWorker
 from PyQt6.QtGui import QFont, QColor
 from ...api_client import api, APIError
 from ...styles import COLORS
+from ...i18n import t
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ QPushButton#cancel:hover {{ background: {COLORS['bg_dark']}; }}
 class ClassDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Yangi sinf qo'shish")
+        self.setWindowTitle(t("sw.dlg_title_add"))
         self.setFixedSize(440, 290)
         self.setStyleSheet(f"""
             QDialog {{
@@ -100,7 +101,7 @@ class ClassDialog(QDialog):
         ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
         h_lay.addWidget(ico)
 
-        title_lbl = QLabel("Yangi sinf qo'shish")
+        title_lbl = QLabel(t("sw.dlg_title_add"))
         title_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_lbl.setStyleSheet("color: white; background: transparent;")
@@ -120,13 +121,13 @@ class ClassDialog(QDialog):
         b_lay.setContentsMargins(28, 20, 28, 24)
         b_lay.setSpacing(14)
 
-        lbl = QLabel("Sinf nomini kiriting:")
+        lbl = QLabel(t("sw.dlg_cls_lbl"))
         lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
         b_lay.addWidget(lbl)
 
         self.inp = QLineEdit()
-        self.inp.setPlaceholderText("Masalan:  9-A   yoki   11-B")
+        self.inp.setPlaceholderText(t("sw.dlg_cls_ph"))
         self.inp.setFixedHeight(46)
         self.inp.setFont(QFont("Segoe UI", 12))
         self.inp.setStyleSheet(f"""
@@ -152,7 +153,7 @@ class ClassDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(12)
 
-        cl_btn = QPushButton("✕   Bekor")
+        cl_btn = QPushButton(t("sw.dlg_cancel"))
         cl_btn.setFixedSize(140, 42)
         cl_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         cl_btn.setStyleSheet(f"""
@@ -172,7 +173,7 @@ class ClassDialog(QDialog):
         """)
         cl_btn.clicked.connect(self.reject)
 
-        ok_btn = QPushButton("✅   Saqlash")
+        ok_btn = QPushButton(t("sw.dlg_save"))
         ok_btn.setFixedSize(160, 42)
         ok_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         ok_btn.setStyleSheet(f"""
@@ -205,7 +206,7 @@ class ClassDialog(QDialog):
 
     def _ok(self):
         if not self.inp.text().strip():
-            self.inp.setPlaceholderText("⚠  Sinf nomini kiriting!")
+            self.inp.setPlaceholderText(t("sw.dlg_cls_warn"))
             self.inp.setStyleSheet(self.inp.styleSheet() +
                                    "border: 2px solid #EF5350 !important;")
             return
@@ -223,7 +224,7 @@ class StudentDialog(QDialog):
         super().__init__(parent)
         self.student = student
         self.setWindowTitle(
-            "O'quvchi qo'shish" if not student else "O'quvchini tahrirlash"
+            t("sw.dlg_stu_add") if not student else t("sw.dlg_stu_edit")
         )
         self.setFixedWidth(460)
         self.setStyleSheet(_DLG_STYLE)
@@ -248,12 +249,12 @@ class StudentDialog(QDialog):
         lay.addSpacing(16)
 
         # ── Fields ──────────────────────────────────────────────────────────
-        self.l_inp = self._field(lay, "Familiya *", "O'quvchi familiyasi")
-        self.f_inp = self._field(lay, "Ism *", "O'quvchi ismi")
+        self.l_inp = self._field(lay, t("sw.dlg_last_lbl"), t("sw.dlg_last_ph"))
+        self.f_inp = self._field(lay, t("sw.dlg_first_lbl"), t("sw.dlg_first_ph"))
         self.tg_inp = self._field(
             lay,
-            "Ota-ona Telegram Chat ID  (ixtiyoriy)",
-            "Masalan: 123456789",
+            t("sw.dlg_tg_lbl"),
+            t("sw.dlg_tg_ph"),
             last=True,
         )
 
@@ -287,10 +288,10 @@ class StudentDialog(QDialog):
         # ── Buttons ─────────────────────────────────────────────────────────
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
-        cancel_btn = QPushButton("Bekor qilish")
+        cancel_btn = QPushButton(t("sw.dlg_cancel"))
         cancel_btn.setObjectName("cancel")
         cancel_btn.clicked.connect(self.reject)
-        save_btn = QPushButton("✅  Saqlash")
+        save_btn = QPushButton(t("sw.dlg_save"))
         save_btn.clicked.connect(self._ok)
         btn_row.addWidget(cancel_btn)
         btn_row.addWidget(save_btn)
@@ -316,17 +317,17 @@ class StudentDialog(QDialog):
 
     def _ok(self):
         if not self.l_inp.text().strip():
-            self._shake(self.l_inp, "Familiya bo'sh bo'lishi mumkin emas!")
+            self._shake(self.l_inp, t("sw.dlg_last_warn"))
             return
         if not self.f_inp.text().strip():
-            self._shake(self.f_inp, "Ism bo'sh bo'lishi mumkin emas!")
+            self._shake(self.f_inp, t("sw.dlg_first_warn"))
             return
         self.accept()
 
     def _shake(self, inp: QLineEdit, msg: str):
         orig = inp.styleSheet()
         inp.setStyleSheet(orig + "border: 2px solid #EF5350;")
-        QMessageBox.warning(self, "⚠  Xato", msg)
+        QMessageBox.warning(self, t("common.warning"), msg)
         inp.setStyleSheet(orig)
         inp.setFocus()
 
@@ -345,7 +346,7 @@ class StudentDialog(QDialog):
 class ExcelFormatDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Excel import formati")
+        self.setWindowTitle(t("sw.dlg_fmt_title"))
         self.setFixedSize(580, 460)
         self.setStyleSheet(_DLG_STYLE)
         self._build()
@@ -355,7 +356,7 @@ class ExcelFormatDialog(QDialog):
         lay.setContentsMargins(28, 20, 28, 20)
         lay.setSpacing(14)
 
-        title = QLabel("📊  O'quvchilar Excel import formati")
+        title = QLabel(t("sw.dlg_fmt_hdr"))
         title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(title)
@@ -373,7 +374,7 @@ class ExcelFormatDialog(QDialog):
         clay.setContentsMargins(16, 14, 16, 14)
         clay.setSpacing(8)
 
-        hdr = QLabel("Ustunlar tartibi:")
+        hdr = QLabel(t("sw.dlg_fmt_cols"))
         hdr.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         hdr.setStyleSheet(f"color: {COLORS['primary_light']};")
         clay.addWidget(hdr)
@@ -412,7 +413,7 @@ class ExcelFormatDialog(QDialog):
         lay.addWidget(cols_card)
 
         # Namuna jadval
-        ex_lbl = QLabel("Namuna ko'rinish:")
+        ex_lbl = QLabel(t("sw.dlg_ex_title"))
         ex_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         ex_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         lay.addWidget(ex_lbl)
@@ -459,10 +460,7 @@ class ExcelFormatDialog(QDialog):
         lay.addWidget(tbl)
 
         # Eslatma
-        note = QLabel(
-            "⚠️  1-qator sarlavha sifatida o'tkazib yuboriladi.  "
-            "C ustun bo'sh bo'lsa ham bo'ladi — Telegram xabar yuborilmaydi."
-        )
+        note = QLabel(t("sw.dlg_fmt_note"))
         note.setFont(QFont("Segoe UI", 10))
         note.setStyleSheet(f"color: {COLORS['accent_light']}; background: transparent;")
         note.setWordWrap(True)
@@ -471,9 +469,9 @@ class ExcelFormatDialog(QDialog):
         # Tugmalar
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
-        dl_btn = QPushButton("📥  Namuna Excel yuklab olish")
+        dl_btn = QPushButton(t("sw.dlg_dl_btn"))
         dl_btn.clicked.connect(self._download)
-        cl_btn = QPushButton("Yopish")
+        cl_btn = QPushButton(t("sw.dlg_close"))
         cl_btn.setObjectName("cancel")
         cl_btn.clicked.connect(self.accept)
         btn_row.addWidget(dl_btn)
@@ -482,17 +480,15 @@ class ExcelFormatDialog(QDialog):
 
     def _download(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, "Namuna faylni saqlash",
-            "oquvchilar_namuna.xlsx", "Excel (*.xlsx)"
+            self, t("sw.dlg_fmt_title"),
+            t("sw.dlg_save_ph"), "Excel (*.xlsx)"
         )
         if not path:
             return
         _generate_student_template(path)
         QMessageBox.information(
-            self, "✅ Saqlandi",
-            f"Namuna fayl saqlandi:\n{path}\n\n"
-            "Sariq qatorlardagi ma'lumotlarni o'chirib,\n"
-            "o'z o'quvchilaringizni kiriting."
+            self, t("sw.dlg_dl_saved"),
+            t("sw.dlg_dl_msg", path=path)
         )
         if os.name == "nt":
             os.startfile(path)
@@ -629,11 +625,11 @@ class StudentsWidget(QWidget):
 
         # ── Sarlavha ──────────────────────────────────────────────────────────
         hdr = QHBoxLayout()
-        title = QLabel("👥  Sinflar va O'quvchilar")
+        title = QLabel(t("sw.title"))
         title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         hdr.addWidget(title)
         hdr.addStretch()
-        fmt_btn = QPushButton("📊  Excel format ko'rsatish")
+        fmt_btn = QPushButton(t("sw.fmt_btn"))
         fmt_btn.setObjectName("secondary")
         fmt_btn.clicked.connect(self._show_format)
         hdr.addWidget(fmt_btn)
@@ -650,13 +646,7 @@ class StudentsWidget(QWidget):
         """)
         hlay = QHBoxLayout(hint)
         hlay.setContentsMargins(14, 10, 14, 10)
-        hint_lbl = QLabel(
-            "💡  <b>Qanday ishlaydi:</b>  "
-            "1) Chapdan sinf tanlang  →  "
-            "2) O'quvchi qo'shing  →  "
-            "3) Ota-ona Telegram ID kiriting  →  "
-            "Test natijasi avtomatik yuboriladi"
-        )
+        hint_lbl = QLabel(t("sw.hint"))
         hint_lbl.setFont(QFont("Segoe UI", 11))
         hint_lbl.setStyleSheet(f"color: {COLORS['primary_light']}; background: transparent;")
         hint_lbl.setWordWrap(True)
@@ -676,10 +666,10 @@ class StudentsWidget(QWidget):
         ll.setSpacing(10)
 
         l_hdr = QHBoxLayout()
-        l_title = QLabel("📚  Sinflar")
+        l_title = QLabel(t("sw.classes_lbl"))
         l_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         l_hdr.addWidget(l_title)
-        self.cls_count_lbl = QLabel("0 ta")
+        self.cls_count_lbl = QLabel(t("sw.cls_count", n=0))
         self.cls_count_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
         l_hdr.addStretch()
         l_hdr.addWidget(self.cls_count_lbl)
@@ -691,12 +681,12 @@ class StudentsWidget(QWidget):
         self.class_list.currentItemChanged.connect(self._on_class_selected)
         ll.addWidget(self.class_list)
 
-        toggle_btn = QPushButton("🟢 Faollashtirish / ⚫ To'xtatish")
+        toggle_btn = QPushButton(t("sw.toggle_btn"))
         toggle_btn.setObjectName("secondary")
         toggle_btn.clicked.connect(self._toggle_class_active)
         ll.addWidget(toggle_btn)
 
-        add_cls_btn = QPushButton("＋  Sinf qo'shish")
+        add_cls_btn = QPushButton(t("sw.add_cls_btn"))
         add_cls_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['success']};
@@ -708,7 +698,7 @@ class StudentsWidget(QWidget):
         add_cls_btn.clicked.connect(self._add_class)
         ll.addWidget(add_cls_btn)
 
-        del_cls_btn = QPushButton("🗑  Sinf o'chirish")
+        del_cls_btn = QPushButton(t("sw.del_cls_btn"))
         del_cls_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['bg_dark']};
@@ -736,7 +726,7 @@ class StudentsWidget(QWidget):
 
         # O'ng sarlavha
         r_hdr = QHBoxLayout()
-        self.students_title = QLabel("👤  O'quvchilar")
+        self.students_title = QLabel(t("sw.students_lbl"))
         self.students_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         r_hdr.addWidget(self.students_title)
         r_hdr.addStretch()
@@ -746,9 +736,7 @@ class StudentsWidget(QWidget):
         rl.addLayout(r_hdr)
 
         # Bo'sh holat labeli
-        self.empty_lbl = QLabel(
-            "⬅  Chapdan sinf tanlang\nSo'ng o'quvchi qo'shing"
-        )
+        self.empty_lbl = QLabel(t("sw.empty_lbl"))
         self.empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_lbl.setStyleSheet(f"""
             color: {COLORS['text_secondary']};
@@ -760,7 +748,7 @@ class StudentsWidget(QWidget):
         self.tbl = QTableWidget()
         self.tbl.setColumnCount(4)
         self.tbl.setHorizontalHeaderLabels(
-            ["Familiya", "Ism", "Ota-ona Telegram ID", "Amallar"]
+            [t("sw.tbl_last"), t("sw.tbl_first"), t("sw.tbl_tg"), t("sw.tbl_actions")]
         )
         self.tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -782,7 +770,7 @@ class StudentsWidget(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
 
-        self.add_st_btn = QPushButton("＋  O'quvchi qo'shish")
+        self.add_st_btn = QPushButton(t("sw.add_st_btn"))
         self.add_st_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['success']};
@@ -795,11 +783,11 @@ class StudentsWidget(QWidget):
         self.add_st_btn.setEnabled(False)
         self.add_st_btn.clicked.connect(self._add_student)
 
-        self.fmt_xl_btn = QPushButton("📋  Namuna Excel")
+        self.fmt_xl_btn = QPushButton(t("sw.fmt_xl_btn"))
         self.fmt_xl_btn.setObjectName("secondary")
         self.fmt_xl_btn.clicked.connect(self._show_format)
 
-        self.imp_xl_btn = QPushButton("📥  Excel import")
+        self.imp_xl_btn = QPushButton(t("sw.imp_xl_btn"))
         self.imp_xl_btn.setObjectName("secondary")
         self.imp_xl_btn.setEnabled(False)
         self.imp_xl_btn.clicked.connect(self._import_excel)
@@ -824,13 +812,13 @@ class StudentsWidget(QWidget):
         tl.setSpacing(8)
 
         tl_hdr = QHBoxLayout()
-        tl_title = QLabel("📚  Biriktirilgan Fanlar")
+        tl_title = QLabel(t("sw.linked_fans"))
         tl_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         tl_hdr.addWidget(tl_title)
         tl_hdr.addStretch()
 
-        sync_btn = QPushButton("🔄 Yangilash")
-        sync_btn.setToolTip("Yangi savollar qo'shilgan bo'lsa — testni yangilaydi")
+        sync_btn = QPushButton(t("sw.sync_btn"))
+        sync_btn.setToolTip(t("sw.sync_tip"))
         sync_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['bg_light']};
@@ -842,7 +830,7 @@ class StudentsWidget(QWidget):
         sync_btn.clicked.connect(self._sync_all_fans)
         tl_hdr.addWidget(sync_btn)
 
-        add_fan_btn = QPushButton("📚 Fan biriktirish")
+        add_fan_btn = QPushButton(t("sw.assign_btn"))
         add_fan_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['primary']};
@@ -875,7 +863,7 @@ class StudentsWidget(QWidget):
         live_layout.setSpacing(7)
 
         live_hdr = QHBoxLayout()
-        live_title = QLabel("📊  Sinf natijalari  (oxirgi)")
+        live_title = QLabel(t("sw.live_title"))
         live_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         live_title.setStyleSheet("color: #69F0AE; background: transparent;")
         live_hdr.addWidget(live_title)
@@ -898,7 +886,8 @@ class StudentsWidget(QWidget):
         self._live_table = QTableWidget()
         self._live_table.setColumnCount(5)
         self._live_table.setHorizontalHeaderLabels(
-            ["Vaqt", "O'quvchi", "Fan", "To'g'ri", "Baho"]
+            [t("sw.live_tbl_time"), t("sw.live_tbl_stu"), t("sw.live_tbl_fan"),
+             t("sw.live_tbl_correct"), t("sw.live_tbl_grade")]
         )
         self._live_table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.Stretch
@@ -928,7 +917,7 @@ class StudentsWidget(QWidget):
     # ── Ma'lumot yuklash ──────────────────────────────────────────────────────
 
     def refresh(self):
-        self.cls_count_lbl.setText("Yuklanmoqda…")
+        self.cls_count_lbl.setText(t("stu.loading"))
         self._w_cls = ApiWorker(api.get_classes)
         self._w_cls.done.connect(self._apply_classes)
         self._w_cls.error.connect(lambda _: self._apply_classes([]))
@@ -946,7 +935,7 @@ class StudentsWidget(QWidget):
             item.setData(Qt.ItemDataRole.UserRole + 1, c.get("student_count", 0))
             self.class_list.addItem(item)
         self.class_list.blockSignals(False)
-        self.cls_count_lbl.setText(f"{len(self.classes)} ta")
+        self.cls_count_lbl.setText(t("sw.cls_count", n=len(self.classes)))
 
         if self._cls_id:
             for i in range(self.class_list.count()):
@@ -959,7 +948,7 @@ class StudentsWidget(QWidget):
             return
         self._cls_id   = item.data(Qt.ItemDataRole.UserRole)
         self._cls_name = item.text().strip()
-        self.students_title.setText(f"👤  {self._cls_name} — O'quvchilar")
+        self.students_title.setText(t("sw.cls_title", name=self._cls_name))
         self.add_st_btn.setEnabled(True)
         self.imp_xl_btn.setEnabled(True)
         self._load_students()
@@ -972,24 +961,21 @@ class StudentsWidget(QWidget):
         try:
             self.students = api.get_students(self._cls_id)
         except APIError as e:
-            QMessageBox.warning(self, "Xato", str(e))
+            QMessageBox.warning(self, t("common.error"), str(e))
             return
         self._render()
 
     def _render(self):
         if not self.students:
             self.tbl.hide()
-            self.empty_lbl.setText(
-                f"📭  {self._cls_name} sinfida hali o'quvchi yo'q\n"
-                "«＋ O'quvchi qo'shish» tugmasini bosing"
-            )
+            self.empty_lbl.setText(t("sw.cls_empty_lbl", name=self._cls_name))
             self.empty_lbl.show()
             self.st_count_lbl.setText("")
             return
 
         self.empty_lbl.hide()
         self.tbl.show()
-        self.st_count_lbl.setText(f"{len(self.students)} ta o'quvchi")
+        self.st_count_lbl.setText(t("sw.stu_count", n=len(self.students)))
         self.tbl.setRowCount(len(self.students))
 
         for row, s in enumerate(self.students):
@@ -1001,7 +987,7 @@ class StudentsWidget(QWidget):
                 self.tbl.setItem(row, col, item)
 
             tg = s.get("parent_telegram_id") or ""
-            tg_item = QTableWidgetItem("✅  " + tg if tg else "—  (kiritilmagan)")
+            tg_item = QTableWidgetItem("✅  " + tg if tg else t("sw.tg_empty"))
             tg_item.setForeground(
                 QColor(COLORS["success_light"]) if tg
                 else QColor(COLORS["text_secondary"])
@@ -1020,13 +1006,13 @@ class StudentsWidget(QWidget):
             ed = QPushButton("✏️")
             ed.setFixedSize(38, 32)
             ed.setObjectName("table_action")
-            ed.setToolTip("Tahrirlash")
+            ed.setToolTip(t("sw.tip_edit"))
             ed.clicked.connect(lambda _, sid=s["id"]: self._edit_student(sid))
 
             dl = QPushButton("🗑️")
             dl.setFixedSize(38, 32)
             dl.setObjectName("table_action_danger")
-            dl.setToolTip("O'chirish")
+            dl.setToolTip(t("sw.tip_del"))
             dl.clicked.connect(lambda _, sid=s["id"]: self._delete_student(sid))
 
             cly.addWidget(ed)
@@ -1042,18 +1028,19 @@ class StudentsWidget(QWidget):
                 api.create_class(dlg.get_name())
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _delete_class(self):
         item = self.class_list.currentItem()
         if not item:
-            QMessageBox.information(self, "Tanlash", "Avval chapdan sinf tanlang!")
+            QMessageBox.information(self, t("sw.select_warn"), t("sw.select_hint"))
             return
         name = item.text().strip()
         n = item.data(Qt.ItemDataRole.UserRole + 1)
-        msg = (f"«{name}» sinfini o'chirishni tasdiqlaysizmi?"
-               + (f"\n\nDiqqat: Bu sinfda {n} ta o'quvchi bor, ular ham o'chiriladi!" if n else ""))
-        r = QMessageBox.question(self, "O'chirish", msg,
+        msg = t("sw.del_cls_confirm", name=name)
+        if n:
+            msg += t("sw.del_cls_students", n=n)
+        r = QMessageBox.question(self, t("common.confirm"), msg,
                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if r == QMessageBox.StandardButton.Yes:
             try:
@@ -1061,14 +1048,14 @@ class StudentsWidget(QWidget):
                 self._cls_id = None
                 self._cls_name = ""
                 self.tbl.hide()
-                self.empty_lbl.setText("⬅  Chapdan sinf tanlang\nSo'ng o'quvchi qo'shing")
+                self.empty_lbl.setText(t("sw.empty_lbl"))
                 self.empty_lbl.show()
-                self.students_title.setText("👤  O'quvchilar")
+                self.students_title.setText(t("sw.students_lbl"))
                 self.add_st_btn.setEnabled(False)
                 self.imp_xl_btn.setEnabled(False)
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── O'quvchi CRUD ──────────────────────────────────────────────────────────
 
@@ -1080,7 +1067,7 @@ class StudentsWidget(QWidget):
                 self._load_students()
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _edit_student(self, sid):
         s = next((x for x in self.students if x["id"] == sid), None)
@@ -1092,15 +1079,15 @@ class StudentsWidget(QWidget):
                 api.update_student(sid, dlg.get_data())
                 self._load_students()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     def _delete_student(self, sid):
         s = next((x for x in self.students if x["id"] == sid), None)
         if not s:
             return
         r = QMessageBox.question(
-            self, "O'chirish",
-            f"{s['last_name']} {s['first_name']}ni ro'yxatdan o'chirishni tasdiqlaysizmi?",
+            self, t("common.confirm"),
+            t("sw.del_stu_confirm", last=s['last_name'], first=s['first_name']),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if r == QMessageBox.StandardButton.Yes:
@@ -1109,21 +1096,21 @@ class StudentsWidget(QWidget):
                 self._load_students()
                 self.refresh()
             except APIError as e:
-                QMessageBox.critical(self, "Xato", str(e))
+                QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── Sinf aktivlashtirish ──────────────────────────────────────────────────
 
     def _toggle_class_active(self):
         item = self.class_list.currentItem()
         if not item:
-            QMessageBox.information(self, "Tanlash", "Avval chapdan sinf tanlang!")
+            QMessageBox.information(self, t("sw.select_warn"), t("sw.select_hint"))
             return
         cls_id = item.data(Qt.ItemDataRole.UserRole)
         try:
             api.toggle_class_active(cls_id)
             self.refresh()
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── Fan biriktirish ───────────────────────────────────────────────────────
 
@@ -1142,7 +1129,7 @@ class StudentsWidget(QWidget):
                 item.setForeground(QColor(COLORS["success_light"]))
                 self.linked_fans_list.addItem(item)
             if not fans:
-                item = QListWidgetItem("— Bu sinfga hali fan biriktirilmagan —")
+                item = QListWidgetItem(t("sw.fan_linked_empty"))
                 item.setForeground(QColor(COLORS["text_secondary"]))
                 self.linked_fans_list.addItem(item)
         except APIError:
@@ -1150,19 +1137,18 @@ class StudentsWidget(QWidget):
 
     def _assign_fan_dialog(self):
         if not self._cls_id:
-            QMessageBox.information(self, "Tanlash", "Avval sinf tanlang!")
+            QMessageBox.information(self, t("sw.select_warn"), t("sw.no_cls_warn"))
             return
         try:
             all_fans = api.get_categories()
             if not all_fans:
-                QMessageBox.information(self, "Fan yo'q",
-                    "Hali fan yaratilmagan!\n\n«Fan» bo'limidan avval fan yarating.")
+                QMessageBox.information(self, t("sw.no_fan_title"), t("sw.no_fan_msg"))
                 return
 
             linked_ids = {f["fan_id"] for f in api.get_class_fans(self._cls_id)}
 
             dlg = QDialog(self)
-            dlg.setWindowTitle(f"Fan biriktirish — {self._cls_name}")
+            dlg.setWindowTitle(t("sw.assign_title", name=self._cls_name))
             dlg.setMinimumWidth(420)
             dlg.setStyleSheet(f"""
                 QDialog {{ background: {COLORS['bg_medium']}; }}
@@ -1187,11 +1173,11 @@ class StudentsWidget(QWidget):
             dl.setContentsMargins(24, 20, 24, 20)
             dl.setSpacing(10)
 
-            hdr_lbl = QLabel(f"📚  «{self._cls_name}» sinfi uchun fan tanlang:")
+            hdr_lbl = QLabel(t("sw.assign_hdr", name=self._cls_name))
             hdr_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
             dl.addWidget(hdr_lbl)
 
-            hint = QLabel("✅ Biriktirilgan (saqlasangiz test yangilanadi)  |  ☐ Biriktirilmagan")
+            hint = QLabel(t("sw.assign_hint"))
             hint.setFont(QFont("Segoe UI", 10))
             hint.setStyleSheet(f"color: {COLORS['text_secondary']};")
             dl.addWidget(hint)
@@ -1213,10 +1199,7 @@ class StudentsWidget(QWidget):
                 checkboxes.append(cb)
 
             dl.addSpacing(8)
-            info = QLabel(
-                "ℹ️  «Saqlash» bosilganda belgilangan fanlar yangilanadi — "
-                "yangi qo'shilgan savollar avtomatik testga qo'shiladi."
-            )
+            info = QLabel(t("sw.assign_info"))
             info.setFont(QFont("Segoe UI", 10))
             info.setStyleSheet(f"color: {COLORS['text_secondary']};")
             info.setWordWrap(True)
@@ -1224,10 +1207,10 @@ class StudentsWidget(QWidget):
 
             btn_row = QHBoxLayout()
             btn_row.setSpacing(10)
-            cancel_btn = QPushButton("Bekor qilish")
+            cancel_btn = QPushButton(t("sw.assign_cancel"))
             cancel_btn.setObjectName("cancel")
             cancel_btn.clicked.connect(dlg.reject)
-            save_btn = QPushButton("✅  Saqlash")
+            save_btn = QPushButton(t("sw.assign_save"))
             save_btn.clicked.connect(dlg.accept)
             btn_row.addWidget(cancel_btn)
             btn_row.addWidget(save_btn)
@@ -1255,24 +1238,23 @@ class StudentsWidget(QWidget):
                         errors.append(f"«{fname}» (ajratish): {e}")
 
             if errors:
-                QMessageBox.warning(self, "Ba'zi xatolar", "\n".join(errors))
+                QMessageBox.warning(self, t("sw.assign_errors"), "\n".join(errors))
             self._load_linked_fans()
 
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── Fan testlarini yangilash ──────────────────────────────────────────────
 
     def _sync_all_fans(self):
         """Biriktirilgan barcha fanlarning testini yangi savollar bilan yangilaydi."""
         if not self._cls_id:
-            QMessageBox.information(self, "Tanlash", "Avval sinf tanlang!")
+            QMessageBox.information(self, t("sw.select_warn"), t("sw.no_cls_warn"))
             return
         try:
             fans = api.get_class_fans(self._cls_id)
             if not fans:
-                QMessageBox.information(self, "Fan yo'q",
-                    "Bu sinfga biriktirilgan fan yo'q.")
+                QMessageBox.information(self, t("sw.no_linked_fan"), t("sw.no_linked_msg"))
                 return
             updated = []
             errors  = []
@@ -1280,16 +1262,16 @@ class StudentsWidget(QWidget):
                 try:
                     res = api.assign_fan_to_class(self._cls_id, f["fan_id"])
                     qc = res.get("question_count", "?")
-                    updated.append(f"✅  {f['fan_name']}  →  {qc} ta savol")
+                    updated.append(t("sw.sync_qcount", name=f['fan_name'], n=qc))
                 except APIError as e:
                     errors.append(f"❌  {f['fan_name']}: {e}")
             msg = "\n".join(updated)
             if errors:
                 msg += "\n\n" + "\n".join(errors)
-            QMessageBox.information(self, "✅ Yangilandi", msg)
+            QMessageBox.information(self, t("sw.sync_done"), msg)
             self._load_linked_fans()
         except APIError as e:
-            QMessageBox.critical(self, "Xato", str(e))
+            QMessageBox.critical(self, t("common.error"), str(e))
 
     # ── Live natijalar ────────────────────────────────────────────────────────
 
@@ -1362,11 +1344,11 @@ class StudentsWidget(QWidget):
 
     def _import_excel(self):
         if not self._cls_id:
-            QMessageBox.warning(self, "Xato", "Avval sinf tanlang!")
+            QMessageBox.warning(self, t("sw.err_import_warn"), t("sw.no_cls_warn"))
             return
 
         path, _ = QFileDialog.getOpenFileName(
-            self, "Excel fayl tanlang", "", "Excel (*.xlsx *.xls)"
+            self, t("sw.excel_open_title"), "", "Excel (*.xlsx *.xls)"
         )
         if not path:
             return
@@ -1394,12 +1376,12 @@ class StudentsWidget(QWidget):
                 else:
                     skipped += 1
 
-            msg = f"✅  {added} ta o'quvchi muvaffaqiyatli yuklandi!"
+            msg = t("sw.import_ok", n=added)
             if skipped:
-                msg += f"\n⚠️  {skipped} ta qator to'liq emas (o'tkazib yuborildi)."
-            QMessageBox.information(self, "Import natijasi", msg)
+                msg += t("sw.import_skip", n=skipped)
+            QMessageBox.information(self, t("sw.import_result"), msg)
             self._load_students()
             self.refresh()
 
         except Exception as e:
-            QMessageBox.critical(self, "Fayl xatosi", f"Excel faylni o'qishda xato:\n{e}")
+            QMessageBox.critical(self, t("sw.err_import_title"), t("sw.err_import_msg", e=e))
