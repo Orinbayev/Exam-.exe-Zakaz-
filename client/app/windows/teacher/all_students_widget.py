@@ -22,18 +22,23 @@ from .students_widget import StudentDialog   # re-use existing dialog
 
 _COMBO_STYLE = f"""
 QComboBox {{
-    background: {COLORS['bg_medium']};
+    background: {COLORS['bg_dark']};
     color: white;
     border: 1.5px solid {COLORS['border']};
-    border-radius: 8px;
-    padding: 6px 10px;
+    border-radius: 10px;
+    padding: 0 14px;
     font-size: 12px;
-    min-width: 160px;
+    font-family: 'Segoe UI', Arial;
+    min-height: 40px;
+    min-width: 150px;
 }}
-QComboBox:focus {{ border-color: {COLORS['primary_light']}; }}
-QComboBox::drop-down {{
-    border: none;
-    padding-right: 8px;
+QComboBox:focus {{ border: 2px solid {COLORS['primary_light']}; }}
+QComboBox::drop-down {{ border: none; width: 28px; }}
+QComboBox::down-arrow {{
+    border-left:  5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top:   6px solid rgba(255,255,255,0.60);
+    margin-right: 10px;
 }}
 QComboBox QAbstractItemView {{
     background: {COLORS['bg_medium']};
@@ -41,20 +46,25 @@ QComboBox QAbstractItemView {{
     border: 1px solid {COLORS['border']};
     selection-background-color: {COLORS['primary']};
     font-size: 12px;
+    padding: 4px;
+    outline: none;
 }}
 """
 
 _SEARCH_STYLE = f"""
 QLineEdit {{
-    background: {COLORS['bg_medium']};
+    background: {COLORS['bg_dark']};
     color: white;
     border: 1.5px solid {COLORS['border']};
-    border-radius: 8px;
-    padding: 6px 14px;
+    border-radius: 10px;
+    padding: 0 14px 0 40px;
     font-size: 13px;
-    min-width: 220px;
+    min-height: 40px;
 }}
-QLineEdit:focus {{ border-color: {COLORS['primary_light']}; }}
+QLineEdit:focus {{
+    border: 2px solid {COLORS['primary_light']};
+    background: #0D2137;
+}}
 """
 
 _TABLE_STYLE = f"""
@@ -62,31 +72,35 @@ QTableWidget {{
     background: {COLORS['bg_dark']};
     color: white;
     border: 1px solid {COLORS['border']};
-    border-radius: 10px;
-    gridline-color: {COLORS['border']};
+    border-radius: 12px;
+    gridline-color: transparent;
     font-size: 13px;
     outline: none;
 }}
 QTableWidget::item {{
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(42,90,140,0.4);
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(42,90,140,0.30);
 }}
 QTableWidget::item:selected {{
     background: {COLORS['primary']};
     color: white;
 }}
 QTableWidget::item:alternate {{
-    background: rgba(255,255,255,0.025);
+    background: rgba(255,255,255,0.02);
 }}
 QHeaderView::section {{
     background: {COLORS['bg_light']};
     color: {COLORS['text_secondary']};
-    padding: 10px 12px;
+    padding: 11px 14px;
     border: none;
     border-right: 1px solid {COLORS['border']};
     border-bottom: 2px solid {COLORS['primary']};
     font-weight: bold;
-    font-size: 12px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}}
+QHeaderView::section:last {{
+    border-right: none;
 }}
 """
 
@@ -108,19 +122,27 @@ class AllStudentsWidget(QWidget):
     def _setup_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(16)
+        root.setSpacing(14)
 
         # ── Sarlavha ──────────────────────────────────────────────────────────
         hdr = QHBoxLayout()
-        title = QLabel(t("as.title"))
+        hdr.setSpacing(12)
+
+        title = QLabel("👥  " + t("as.title"))
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title.setStyleSheet("color: white;")
+        title.setStyleSheet("color: white; background: transparent;")
         hdr.addWidget(title)
         hdr.addStretch()
 
         self._count_lbl = QLabel("")
-        self._count_lbl.setFont(QFont("Segoe UI", 11))
-        self._count_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        self._count_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        self._count_lbl.setFixedHeight(28)
+        self._count_lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']};"
+            f"background: {COLORS['bg_light']};"
+            f"border-radius: 8px;"
+            f"padding: 0 12px;"
+        )
         hdr.addWidget(self._count_lbl)
         root.addLayout(hdr)
 
@@ -130,63 +152,145 @@ class AllStudentsWidget(QWidget):
             QFrame {{
                 background: {COLORS['bg_medium']};
                 border: 1px solid {COLORS['border']};
-                border-radius: 12px;
+                border-radius: 14px;
             }}
         """)
         fl = QHBoxLayout(filter_frame)
         fl.setContentsMargins(16, 12, 16, 12)
-        fl.setSpacing(12)
+        fl.setSpacing(10)
 
-        # Qidiruv
-        srch_lbl = QLabel("🔍")
-        srch_lbl.setFont(QFont("Segoe UI Emoji", 14))
-        srch_lbl.setStyleSheet("background: transparent;")
-        fl.addWidget(srch_lbl)
+        # ── Qidiruv (icon overlay bilan) ──────────────────────────────────────
+        srch_wrap = QFrame()
+        srch_wrap.setStyleSheet("background: transparent; border: none;")
+        srch_wrap_lay = QHBoxLayout(srch_wrap)
+        srch_wrap_lay.setContentsMargins(0, 0, 0, 0)
+        srch_wrap_lay.setSpacing(0)
+
+        srch_ico = QLabel("🔍")
+        srch_ico.setFont(QFont("Segoe UI Emoji", 12))
+        srch_ico.setStyleSheet(
+            f"background: {COLORS['bg_dark']};"
+            f"border: 1.5px solid {COLORS['border']};"
+            "border-right: none;"
+            "border-top-left-radius: 10px;"
+            "border-bottom-left-radius: 10px;"
+            "padding: 0 10px;"
+            "min-height: 40px;"
+        )
 
         self._search = QLineEdit()
         self._search.setPlaceholderText(t("as.search_ph"))
-        self._search.setFixedHeight(38)
-        self._search.setStyleSheet(_SEARCH_STYLE)
+        self._search.setFixedHeight(42)
+        self._search.setStyleSheet(f"""
+            QLineEdit {{
+                background: {COLORS['bg_dark']};
+                color: white;
+                border: 1.5px solid {COLORS['border']};
+                border-left: none;
+                border-top-right-radius: 10px;
+                border-bottom-right-radius: 10px;
+                border-top-left-radius: 0px;
+                border-bottom-left-radius: 0px;
+                padding: 0 14px;
+                font-size: 13px;
+                min-width: 220px;
+            }}
+            QLineEdit:focus {{
+                border-color: {COLORS['primary_light']};
+                background: #0D2137;
+            }}
+        """)
         self._search.textChanged.connect(lambda: self._debounce.start(350))
-        fl.addWidget(self._search, stretch=1)
 
-        # Sinf filter
+        srch_wrap_lay.addWidget(srch_ico)
+        srch_wrap_lay.addWidget(self._search)
+        fl.addWidget(srch_wrap, stretch=2)
+
+        fl.addSpacing(6)
+
+        # Divider
+        div1 = QFrame()
+        div1.setFrameShape(QFrame.Shape.VLine)
+        div1.setStyleSheet(f"color: {COLORS['border']}; max-width: 1px;")
+        fl.addWidget(div1)
+
+        fl.addSpacing(6)
+
+        # ── Sinf filter ───────────────────────────────────────────────────────
+        cls_group = QHBoxLayout()
+        cls_group.setSpacing(8)
+
+        cls_ico = QLabel("🏫")
+        cls_ico.setFont(QFont("Segoe UI Emoji", 13))
+        cls_ico.setStyleSheet("background: transparent;")
+
         cls_lbl = QLabel(t("as.filter_class"))
-        cls_lbl.setFont(QFont("Segoe UI", 11))
+        cls_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         cls_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
-        fl.addWidget(cls_lbl)
 
         self._cls_combo = QComboBox()
-        self._cls_combo.setFixedHeight(38)
+        self._cls_combo.setFixedHeight(42)
+        self._cls_combo.setFixedWidth(170)
         self._cls_combo.setStyleSheet(_COMBO_STYLE)
         self._cls_combo.currentIndexChanged.connect(self._load)
-        fl.addWidget(self._cls_combo)
 
-        # Fan filter
+        cls_group.addWidget(cls_ico)
+        cls_group.addWidget(cls_lbl)
+        cls_group.addWidget(self._cls_combo)
+        fl.addLayout(cls_group)
+
+        fl.addSpacing(6)
+
+        # Divider
+        div2 = QFrame()
+        div2.setFrameShape(QFrame.Shape.VLine)
+        div2.setStyleSheet(f"color: {COLORS['border']}; max-width: 1px;")
+        fl.addWidget(div2)
+
+        fl.addSpacing(6)
+
+        # ── Fan filter ────────────────────────────────────────────────────────
+        fan_group = QHBoxLayout()
+        fan_group.setSpacing(8)
+
+        fan_ico = QLabel("📚")
+        fan_ico.setFont(QFont("Segoe UI Emoji", 13))
+        fan_ico.setStyleSheet("background: transparent;")
+
         fan_lbl = QLabel(t("as.filter_fan"))
-        fan_lbl.setFont(QFont("Segoe UI", 11))
+        fan_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         fan_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
-        fl.addWidget(fan_lbl)
 
         self._fan_combo = QComboBox()
-        self._fan_combo.setFixedHeight(38)
+        self._fan_combo.setFixedHeight(42)
+        self._fan_combo.setFixedWidth(170)
         self._fan_combo.setStyleSheet(_COMBO_STYLE)
         self._fan_combo.currentIndexChanged.connect(self._load)
-        fl.addWidget(self._fan_combo)
+
+        fan_group.addWidget(fan_ico)
+        fan_group.addWidget(fan_lbl)
+        fan_group.addWidget(self._fan_combo)
+        fl.addLayout(fan_group)
 
         fl.addSpacing(8)
 
-        # Yangilash
+        # ── Yangilash tugmasi ─────────────────────────────────────────────────
         ref_btn = QPushButton("🔄")
-        ref_btn.setFixedSize(38, 38)
+        ref_btn.setFixedSize(42, 42)
+        ref_btn.setFont(QFont("Segoe UI Emoji", 14))
         ref_btn.setToolTip("Yangilash")
         ref_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['bg_light']};
-                color: white; border: 1px solid {COLORS['border']};
-                border-radius: 8px; font-size: 14px;
+                color: white;
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 10px;
+                font-size: 15px;
             }}
-            QPushButton:hover {{ background: {COLORS['primary']}; border-color: {COLORS['primary']}; }}
+            QPushButton:hover {{
+                background: {COLORS['primary']};
+                border-color: {COLORS['primary_light']};
+            }}
         """)
         ref_btn.clicked.connect(self._load)
         fl.addWidget(ref_btn)
@@ -209,7 +313,7 @@ class AllStudentsWidget(QWidget):
         hh.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        self._tbl.setColumnWidth(4, 110)
+        self._tbl.setColumnWidth(4, 120)
         self._tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._tbl.verticalHeader().setVisible(False)
         self._tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -220,31 +324,43 @@ class AllStudentsWidget(QWidget):
 
         # ── Pastki panel ──────────────────────────────────────────────────────
         bottom = QHBoxLayout()
-        bottom.setSpacing(10)
+        bottom.setContentsMargins(0, 4, 0, 0)
+        bottom.setSpacing(12)
 
-        self._add_btn = QPushButton(t("as.add_btn"))
-        self._add_btn.setFixedHeight(40)
+        self._add_btn = QPushButton("＋  " + t("as.add_btn"))
+        self._add_btn.setFixedHeight(44)
+        self._add_btn.setMinimumWidth(180)
         self._add_btn.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setStyleSheet(f"""
             QPushButton {{
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
                     stop:0 {COLORS['success']}, stop:1 #388E3C);
-                color: white; border: none; border-radius: 10px;
-                padding: 0 22px; font-size: 13px; font-weight: bold;
+                color: white;
+                border: none;
+                border-radius: 11px;
+                padding: 0 24px;
+                font-size: 13px;
+                font-weight: bold;
             }}
             QPushButton:hover {{
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
                     stop:0 #388E3C, stop:1 {COLORS['success_light']});
+            }}
+            QPushButton:pressed {{
+                background: {COLORS['success']};
             }}
         """)
         self._add_btn.clicked.connect(self._add_student)
         bottom.addWidget(self._add_btn)
         bottom.addStretch()
 
-        # Hint
         hint_lbl = QLabel("💡  O'quvchini qo'shish uchun sinf filtridan sinf tanlang")
         hint_lbl.setFont(QFont("Segoe UI", 10))
-        hint_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        hint_lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']};"
+            "background: transparent;"
+        )
         bottom.addWidget(hint_lbl)
 
         root.addLayout(bottom)
@@ -302,9 +418,11 @@ class AllStudentsWidget(QWidget):
 
         if n == 0:
             self._tbl.setRowCount(1)
-            empty = QTableWidgetItem(t("as.empty"))
+            self._tbl.setRowHeight(0, 80)
+            empty = QTableWidgetItem("🔍   " + t("as.empty"))
             empty.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             empty.setForeground(QColor(COLORS["text_secondary"]))
+            empty.setFont(QFont("Segoe UI", 13))
             self._tbl.setSpan(0, 0, 1, 5)
             self._tbl.setItem(0, 0, empty)
             return
