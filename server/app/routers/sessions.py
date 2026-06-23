@@ -121,8 +121,8 @@ async def finish_exam(
     session.end_time = datetime.utcnow()
     db.commit()
 
-    # Telegram xabar yuborish (background)
-    background_tasks.add_task(send_telegram_notification, session.id, db)
+    # Telegram xabar yuborish (background) — alohida db sessiyasi bilan
+    background_tasks.add_task(send_telegram_notification, session.id)
 
     time_spent = None
     if session.end_time and session.start_time:
@@ -145,15 +145,19 @@ async def finish_exam(
     )
 
 
-async def send_telegram_notification(session_id: int, db: Session):
-    """Telegram bot orqali natija yuborish."""
+async def send_telegram_notification(session_id: int):
+    """Telegram bot orqali natija yuborish — o'z db sessiyasi bilan."""
+    from ..database import SessionLocal
+    db = SessionLocal()
     try:
         from ..telegram_bot import notify_result
         session = db.query(ExamSession).filter(ExamSession.id == session_id).first()
         if session:
             await notify_result(session, db)
-    except Exception:
-        pass  # Telegram xato bo'lsa tizim to'xtamasin
+    except Exception as e:
+        print(f"[Telegram background] xato: {e}")
+    finally:
+        db.close()
 
 
 @router.get("/results", dependencies=[])

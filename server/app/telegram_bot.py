@@ -16,14 +16,13 @@ async def get_setting(db, key: str) -> Optional[str]:
 async def send_message(token: str, chat_id: str, text: str) -> bool:
     """Telegram API orqali xabar yuborish."""
     try:
-        import aiohttp
+        import httpx
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload,
-                                    timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                result = await resp.json()
-                return result.get("ok", False)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json=payload)
+            result = resp.json()
+            return result.get("ok", False)
     except Exception as e:
         print(f"Telegram xato: {e}")
         return False
