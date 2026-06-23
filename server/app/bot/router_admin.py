@@ -5,13 +5,16 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd
+from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd, StudentEdit
 from .texts import T
 from .keyboards import (
     admin_main_kb, back_admin_kb, subjects_kb,
     correct_kb, difficulty_kb, confirm_kb,
     admin_questions_kb, admin_subjects_kb, admin_classes_kb,
     class_detail_kb, skip_kb,
+    subjects_list_kb, fan_manage_kb, fan_del_confirm_kb,
+    cls_manage_kb, cls_del_confirm_kb,
+    students_list_kb, student_manage_kb, std_del_confirm_kb,
 )
 from .helpers import get_or_create_bot_user, is_bot_admin
 from ..database import SessionLocal
@@ -166,25 +169,120 @@ async def admin_subjects(call: CallbackQuery):
         cats = db.query(Category).all()
         cat_list = []
         for c in cats:
-            qcount = (
-                db.query(Question)
-                .filter(Question.category_id == c.id, Question.is_active == True)
-                .count()
-            )
-            cat_list.append({"id": c.id, "name": c.name, "q": qcount})
+            qcount = db.query(Question).filter(Question.category_id == c.id, Question.is_active == True).count()
+            cat_list.append({"id": c.id, "name": c.name, "q": qcount, "is_active": bool(c.is_active)})
     finally:
         db.close()
 
-    if not cat_list:
-        text = T(lang, "no_subjects")
-    else:
-        text = T(lang, "subjects_title", n=len(cat_list))
-        for c in cat_list:
-            text += T(lang, "subject_row", name=c["name"], q=c["q"])
+    text = T(lang, "subjects_title", n=len(cat_list)) if cat_list else T(lang, "no_subjects")
+    await call.message.edit_text(
+        text, reply_markup=subjects_list_kb(lang, cat_list), parse_mode="HTML"
+    )
+    await call.answer()
+
+
+# ── Fan detail / toggle / delete ───────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("fan:"))
+async def fan_detail(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    fan_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    db = SessionLocal()
+    try:
+        c = db.query(Category).filter(Category.id == fan_id).first()
+        if not c:
+            await call.answer("Not found")
+            return
+        qcount = db.query(Question).filter(Question.category_id == fan_id, Question.is_active == True).count()
+        name, time_limit, is_active = c.name, c.time_limit or 30, bool(c.is_active)
+    finally:
+        db.close()
+
+    status = T(lang, "active") if is_active else T(lang, "inactive")
+    text = T(lang, "fan_detail", name=name, time=time_limit, q=qcount, status=status)
+    await call.message.edit_text(text, reply_markup=fan_manage_kb(lang, fan_id, is_active), parse_mode="HTML")
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("fan_toggle:"))
+async def fan_toggle(call: CallbackQuery):
+    fan_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        c = db.query(Category).filter(Category.id == fan_id).first()
+        if not c:
+            await call.answer("Not found")
+            return
+        c.is_active = not bool(c.is_active)
+        db.commit()
+        name, is_active = c.name, bool(c.is_active)
+        qcount = db.query(Question).filter(Question.category_id == fan_id, Question.is_active == True).count()
+        time_limit = c.time_limit or 30
+    finally:
+        db.close()
+
+    key = "fan_toggled_on" if is_active else "fan_toggled_off"
+    status = T(lang, "active") if is_active else T(lang, "inactive")
+    text = T(lang, "fan_detail", name=name, time=time_limit, q=qcount, status=status)
+    await call.message.edit_text(text, reply_markup=fan_manage_kb(lang, fan_id, is_active), parse_mode="HTML")
+    await call.answer(T(lang, key, name=name), show_alert=False)
+
+
+@router.callback_query(F.data.startswith("fan_del_ask:"))
+async def fan_del_ask(call: CallbackQuery):
+    fan_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        c = db.query(Category).filter(Category.id == fan_id).first()
+        name = c.name if c else "?"
+    finally:
+        db.close()
 
     await call.message.edit_text(
-        text, reply_markup=admin_subjects_kb(lang), parse_mode="HTML"
+        T(lang, "fan_del_ask", name=name),
+        reply_markup=fan_del_confirm_kb(lang, fan_id),
+        parse_mode="HTML",
     )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("fan_del_ok:"))
+async def fan_del_ok(call: CallbackQuery):
+    fan_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        c = db.query(Category).filter(Category.id == fan_id).first()
+        if not c:
+            await call.answer("Not found")
+            return
+        name = c.name
+        db.delete(c)
+        db.commit()
+        cats = db.query(Category).all()
+        cat_list = []
+        for cat in cats:
+            qcount = db.query(Question).filter(Question.category_id == cat.id, Question.is_active == True).count()
+            cat_list.append({"id": cat.id, "name": cat.name, "q": qcount, "is_active": bool(cat.is_active)})
+    finally:
+        db.close()
+
+    text = T(lang, "fan_deleted", name=name)
+    await call.message.edit_text(text, reply_markup=subjects_list_kb(lang, cat_list), parse_mode="HTML")
     await call.answer()
 
 
@@ -217,7 +315,114 @@ async def admin_students(call: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("cls:"))
-async def show_class_students(call: CallbackQuery):
+async def class_detail(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    class_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        if not cls:
+            await call.answer("Not found")
+            return
+        n = db.query(Student).filter(Student.class_id == class_id).count()
+        cls_name, is_active = cls.name, bool(cls.is_active)
+    finally:
+        db.close()
+
+    status = T(lang, "active") if is_active else T(lang, "inactive")
+    text = T(lang, "cls_detail", name=cls_name, n=n, status=status)
+    await call.message.edit_text(text, reply_markup=cls_manage_kb(lang, class_id, is_active), parse_mode="HTML")
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("cls_toggle:"))
+async def cls_toggle(call: CallbackQuery):
+    class_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        if not cls:
+            await call.answer("Not found")
+            return
+        cls.is_active = not bool(cls.is_active)
+        db.commit()
+        n = db.query(Student).filter(Student.class_id == class_id).count()
+        cls_name, is_active = cls.name, bool(cls.is_active)
+    finally:
+        db.close()
+
+    key = "cls_toggled_on" if is_active else "cls_toggled_off"
+    status = T(lang, "active") if is_active else T(lang, "inactive")
+    text = T(lang, "cls_detail", name=cls_name, n=n, status=status)
+    await call.message.edit_text(text, reply_markup=cls_manage_kb(lang, class_id, is_active), parse_mode="HTML")
+    await call.answer(T(lang, key, name=cls_name), show_alert=False)
+
+
+@router.callback_query(F.data.startswith("cls_del_ask:"))
+async def cls_del_ask(call: CallbackQuery):
+    class_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        name = cls.name if cls else "?"
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "cls_del_ask", name=name),
+        reply_markup=cls_del_confirm_kb(lang, class_id),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("cls_del_ok:"))
+async def cls_del_ok(call: CallbackQuery):
+    class_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        if not cls:
+            await call.answer("Not found")
+            return
+        name = cls.name
+        db.query(Student).filter(Student.class_id == class_id).delete()
+        db.delete(cls)
+        db.commit()
+        classes = db.query(StudentClass).all()
+        cls_list = []
+        for c in classes:
+            n = db.query(Student).filter(Student.class_id == c.id).count()
+            cls_list.append({"id": c.id, "name": c.name, "n": n})
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "cls_deleted", name=name),
+        reply_markup=admin_classes_kb(lang, cls_list),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("cls_students:"))
+async def cls_students(call: CallbackQuery, state: FSMContext):
+    await state.clear()
     class_id = int(call.data.split(":")[1])
     tid = str(call.from_user.id)
     lang = _lang(tid)
@@ -230,21 +435,15 @@ async def show_class_students(call: CallbackQuery):
             return
         students = db.query(Student).filter(Student.class_id == class_id).all()
         cls_name = cls.name
-        student_rows = [
-            {"first": s.first_name, "last": s.last_name} for s in students
-        ]
+        std_list = [{"id": s.id, "first": s.first_name, "last": s.last_name} for s in students]
     finally:
         db.close()
 
     text = T(lang, "students_of_class", cls=cls_name)
-    if not student_rows:
+    if not std_list:
         text += T(lang, "no_students_in_class")
-    else:
-        for i, s in enumerate(student_rows, 1):
-            text += T(lang, "student_row", i=i, last=s["last"], first=s["first"]) + "\n"
-
     await call.message.edit_text(
-        text, reply_markup=class_detail_kb(lang, class_id), parse_mode="HTML"
+        text, reply_markup=students_list_kb(lang, std_list, class_id), parse_mode="HTML"
     )
     await call.answer()
 
@@ -625,6 +824,232 @@ async def cls_cancel(call: CallbackQuery, state: FSMContext):
     await call.answer()
 
 
+# ── O'quvchi detail / tahrirlash / o'chirish ──────────────────────────────────
+
+@router.callback_query(F.data.startswith("std:"))
+async def std_detail(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    parts = call.data.split(":")
+    student_id, class_id = int(parts[1]), int(parts[2])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        s = db.query(Student).filter(Student.id == student_id).first()
+        if not s:
+            await call.answer("Not found")
+            return
+        cls = db.query(StudentClass).filter(StudentClass.id == s.class_id).first()
+        cls_name = cls.name if cls else "?"
+        data = {
+            "first": s.first_name, "last": s.last_name,
+            "cls": cls_name, "parent": s.parent_telegram_id or "—",
+        }
+    finally:
+        db.close()
+
+    text = T(lang, "std_detail", **data)
+    await call.message.edit_text(
+        text, reply_markup=student_manage_kb(lang, student_id, class_id), parse_mode="HTML"
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("std_del_ask:"))
+async def std_del_ask(call: CallbackQuery):
+    parts = call.data.split(":")
+    student_id, class_id = int(parts[1]), int(parts[2])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        s = db.query(Student).filter(Student.id == student_id).first()
+        first, last = (s.first_name, s.last_name) if s else ("?", "?")
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "std_del_ask", first=first, last=last),
+        reply_markup=std_del_confirm_kb(lang, student_id, class_id),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("std_del_ok:"))
+async def std_del_ok(call: CallbackQuery):
+    parts = call.data.split(":")
+    student_id, class_id = int(parts[1]), int(parts[2])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        s = db.query(Student).filter(Student.id == student_id).first()
+        if not s:
+            await call.answer("Not found")
+            return
+        first, last = s.first_name, s.last_name
+        db.delete(s)
+        db.commit()
+        stds = db.query(Student).filter(Student.class_id == class_id).all()
+        std_list = [{"id": x.id, "first": x.first_name, "last": x.last_name} for x in stds]
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        cls_name = cls.name if cls else "?"
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "std_deleted", first=first, last=last),
+        reply_markup=students_list_kb(lang, std_list, class_id),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+# ── O'quvchi tahrirlash (StudentEdit FSM) ─────────────────────────────────────
+
+@router.callback_query(F.data.startswith("std_edit_f:"))
+async def std_edit_fname_start(call: CallbackQuery, state: FSMContext):
+    parts = call.data.split(":")
+    student_id, class_id = int(parts[1]), int(parts[2])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(student_id=student_id, class_id=class_id)
+    await state.set_state(StudentEdit.first_name)
+    await call.message.edit_text(T(lang, "std_edit_ask_fname"), parse_mode="HTML")
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("std_edit_l:"))
+async def std_edit_lname_start(call: CallbackQuery, state: FSMContext):
+    parts = call.data.split(":")
+    student_id, class_id = int(parts[1]), int(parts[2])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(student_id=student_id, class_id=class_id)
+    await state.set_state(StudentEdit.last_name)
+    await call.message.edit_text(T(lang, "std_edit_ask_lname"), parse_mode="HTML")
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("std_edit_p:"))
+async def std_edit_parent_start(call: CallbackQuery, state: FSMContext):
+    parts = call.data.split(":")
+    student_id, class_id = int(parts[1]), int(parts[2])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(student_id=student_id, class_id=class_id)
+    await state.set_state(StudentEdit.parent_tg)
+    await call.message.edit_text(
+        T(lang, "std_edit_ask_parent"),
+        reply_markup=skip_kb(lang),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.message(StudentEdit.first_name)
+async def std_save_fname(message: Message, state: FSMContext):
+    data = await state.get_data()
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+
+    db = SessionLocal()
+    try:
+        s = db.query(Student).filter(Student.id == data["student_id"]).first()
+        if not s:
+            await message.answer(T(lang, "error"))
+            return
+        s.first_name = message.text.strip()
+        db.commit()
+        first, last, class_id = s.first_name, s.last_name, s.class_id
+        stds = db.query(Student).filter(Student.class_id == class_id).all()
+        std_list = [{"id": x.id, "first": x.first_name, "last": x.last_name} for x in stds]
+    finally:
+        db.close()
+
+    await message.answer(
+        T(lang, "std_updated", first=first, last=last),
+        reply_markup=students_list_kb(lang, std_list, data["class_id"]),
+        parse_mode="HTML",
+    )
+
+
+@router.message(StudentEdit.last_name)
+async def std_save_lname(message: Message, state: FSMContext):
+    data = await state.get_data()
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+
+    db = SessionLocal()
+    try:
+        s = db.query(Student).filter(Student.id == data["student_id"]).first()
+        if not s:
+            await message.answer(T(lang, "error"))
+            return
+        s.last_name = message.text.strip()
+        db.commit()
+        first, last, class_id = s.first_name, s.last_name, s.class_id
+        stds = db.query(Student).filter(Student.class_id == class_id).all()
+        std_list = [{"id": x.id, "first": x.first_name, "last": x.last_name} for x in stds]
+    finally:
+        db.close()
+
+    await message.answer(
+        T(lang, "std_updated", first=first, last=last),
+        reply_markup=students_list_kb(lang, std_list, data["class_id"]),
+        parse_mode="HTML",
+    )
+
+
+@router.message(StudentEdit.parent_tg)
+async def std_save_parent(message: Message, state: FSMContext):
+    data = await state.get_data()
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+    new_parent = message.text.strip() if message.text else None
+    await _apply_parent_update(message, lang, data, new_parent)
+
+
+@router.callback_query(StudentEdit.parent_tg, F.data == "std_skip_parent")
+async def std_skip_parent_edit(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+    await _apply_parent_update(call.message, lang, data, None, edit=True)
+    await call.answer()
+
+
+async def _apply_parent_update(msg, lang: str, data: dict, new_parent, edit: bool = False):
+    db = SessionLocal()
+    try:
+        s = db.query(Student).filter(Student.id == data["student_id"]).first()
+        if not s:
+            await msg.answer(T(lang, "error"))
+            return
+        s.parent_telegram_id = new_parent
+        db.commit()
+        first, last, class_id = s.first_name, s.last_name, s.class_id
+        stds = db.query(Student).filter(Student.class_id == class_id).all()
+        std_list = [{"id": x.id, "first": x.first_name, "last": x.last_name} for x in stds]
+    finally:
+        db.close()
+
+    kb = students_list_kb(lang, std_list, data["class_id"])
+    text = T(lang, "std_updated", first=first, last=last)
+    if edit:
+        await msg.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    else:
+        await msg.answer(text, reply_markup=kb, parse_mode="HTML")
+
+
 # ── O'quvchi qo'shish (StudentAdd FSM) ────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("std_add:"))
@@ -729,10 +1154,18 @@ async def std_save(call: CallbackQuery, state: FSMContext):
     finally:
         db.close()
 
+    # Saqlagandan keyin o'quvchilar ro'yxatiga qaytamiz
+    db2 = SessionLocal()
+    try:
+        stds = db2.query(Student).filter(Student.class_id == data["class_id"]).all()
+        std_list = [{"id": s.id, "first": s.first_name, "last": s.last_name} for s in stds]
+    finally:
+        db2.close()
+
     await call.message.edit_text(
         T(lang, "std_add_saved",
           first=data["first_name"], last=data["last_name"], cls=cls_name),
-        reply_markup=class_detail_kb(lang, data["class_id"]),
+        reply_markup=students_list_kb(lang, std_list, data["class_id"]),
         parse_mode="HTML",
     )
     await call.answer()

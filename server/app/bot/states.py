@@ -41,3 +41,9 @@ class StudentAdd(StatesGroup):
     last_name = State()
     parent_tg = State()
     confirm = State()
+
+
+class StudentEdit(StatesGroup):
+    first_name = State()
+    last_name = State()
+    parent_tg = State()

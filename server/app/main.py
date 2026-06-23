@@ -74,6 +74,7 @@ async def startup():
                 "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0",
                 "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT 1",
                 "ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30",
+                "ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT 1",
             ]
             for sql in migrations:
                 try:

@@ -176,6 +176,107 @@ def admin_subjects_kb(lang: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def subjects_list_kb(lang: str, cats: list) -> InlineKeyboardMarkup:
+    """Fanlar ro'yxati inline tugmalar sifatida."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    for c in cats:
+        status = "✅" if c.get("is_active", True) else "❌"
+        builder.row(InlineKeyboardButton(
+            text=f"{status} {c['name']} ({c['q']}❓)",
+            callback_data=f"fan:{c['id']}"
+        ))
+    builder.row(InlineKeyboardButton(text=T(lang, "fan_add_btn"), callback_data="fan_add_start"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_menu"))
+    return builder.as_markup()
+
+
+def fan_manage_kb(lang: str, fan_id: int, is_active: bool) -> InlineKeyboardMarkup:
+    """Fan boshqaruvi: faollashtirish/o'chirish."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    if is_active:
+        builder.row(InlineKeyboardButton(text=T(lang, "fan_deactivate_btn"), callback_data=f"fan_toggle:{fan_id}"))
+    else:
+        builder.row(InlineKeyboardButton(text=T(lang, "fan_activate_btn"), callback_data=f"fan_toggle:{fan_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "fan_delete_btn"), callback_data=f"fan_del_ask:{fan_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_subjects"))
+    return builder.as_markup()
+
+
+def fan_del_confirm_kb(lang: str, fan_id: int) -> InlineKeyboardMarkup:
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        InlineKeyboardButton(text=T(lang, "del_confirm_btn"), callback_data=f"fan_del_ok:{fan_id}"),
+        InlineKeyboardButton(text=T(lang, "del_cancel_btn"), callback_data=f"fan:{fan_id}"),
+    )
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def cls_manage_kb(lang: str, class_id: int, is_active: bool) -> InlineKeyboardMarkup:
+    """Sinf boshqaruvi."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text=T(lang, "cls_view_students_btn"), callback_data=f"cls_students:{class_id}"))
+    if is_active:
+        builder.row(InlineKeyboardButton(text=T(lang, "cls_deactivate_btn"), callback_data=f"cls_toggle:{class_id}"))
+    else:
+        builder.row(InlineKeyboardButton(text=T(lang, "cls_activate_btn"), callback_data=f"cls_toggle:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "cls_delete_btn"), callback_data=f"cls_del_ask:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_students"))
+    return builder.as_markup()
+
+
+def cls_del_confirm_kb(lang: str, class_id: int) -> InlineKeyboardMarkup:
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        InlineKeyboardButton(text=T(lang, "del_confirm_btn"), callback_data=f"cls_del_ok:{class_id}"),
+        InlineKeyboardButton(text=T(lang, "del_cancel_btn"), callback_data=f"cls:{class_id}"),
+    )
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def students_list_kb(lang: str, students: list, class_id: int) -> InlineKeyboardMarkup:
+    """O'quvchilar ro'yxati inline tugmalar sifatida."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    for s in students:
+        builder.row(InlineKeyboardButton(
+            text=f"👤 {s['last']} {s['first']}",
+            callback_data=f"std:{s['id']}:{class_id}"
+        ))
+    builder.row(InlineKeyboardButton(text=T(lang, "std_add_btn"), callback_data=f"std_add:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data=f"cls:{class_id}"))
+    return builder.as_markup()
+
+
+def student_manage_kb(lang: str, student_id: int, class_id: int) -> InlineKeyboardMarkup:
+    """O'quvchi boshqaruvi: tahrirlash/o'chirish."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text=T(lang, "std_edit_fname_btn"), callback_data=f"std_edit_f:{student_id}:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "std_edit_lname_btn"), callback_data=f"std_edit_l:{student_id}:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "std_edit_parent_btn"), callback_data=f"std_edit_p:{student_id}:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "std_delete_btn"), callback_data=f"std_del_ask:{student_id}:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data=f"cls_students:{class_id}"))
+    return builder.as_markup()
+
+
+def std_del_confirm_kb(lang: str, student_id: int, class_id: int) -> InlineKeyboardMarkup:
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        InlineKeyboardButton(text=T(lang, "del_confirm_btn"), callback_data=f"std_del_ok:{student_id}:{class_id}"),
+        InlineKeyboardButton(text=T(lang, "del_cancel_btn"), callback_data=f"std:{student_id}:{class_id}"),
+    )
+    builder.adjust(2)
+    return builder.as_markup()
+
+
 def admin_classes_kb(lang: str, cls_list: list) -> InlineKeyboardMarkup:
     """Sinflar ro'yxati uchun — qo'shish tugmasi bilan."""
     from .texts import T

@@ -37,6 +37,7 @@ class Category(Base):
     name = Column(String(100), nullable=False)
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     time_limit = Column(Integer, default=30)   # daqiqalarda
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     teacher = relationship("User")
