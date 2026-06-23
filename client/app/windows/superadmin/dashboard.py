@@ -385,109 +385,167 @@ class SettingsWidget(QWidget):
     # ── UI ────────────────────────────────────────────────────────────────────
 
     def _setup_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        from PyQt6.QtWidgets import QScrollArea
+
+        outer_lay = QVBoxLayout(self)
+        outer_lay.setContentsMargins(0, 0, 0, 0)
+        outer_lay.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        inner = QWidget()
+        inner.setStyleSheet("background: transparent;")
+        root = QVBoxLayout(inner)
+        root.setContentsMargins(2, 2, 14, 20)
         root.setSpacing(16)
 
-        # Page title + refresh button
+        # ── Page header ───────────────────────────────────────────────────────
         hdr = QHBoxLayout()
         title = QLabel(t("set.title"))
-        title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        refresh_btn = QPushButton(t("set.refresh"))
+        title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        title.setStyleSheet("background: transparent;")
+
+        refresh_btn = QPushButton("🔄  " + t("set.refresh"))
         refresh_btn.setObjectName("secondary")
+        refresh_btn.setFixedHeight(38)
         refresh_btn.clicked.connect(self.refresh)
+
         hdr.addWidget(title)
         hdr.addStretch()
         hdr.addWidget(refresh_btn)
         root.addLayout(hdr)
 
-        # ── Card 1: Telegram Bot ─────────────────────────────────────────────
-        tg_frame, tg_lay = _settings_card(
-            "🤖", t("set.tg_card"), COLORS["primary_light"]
-        )
+        # ═════════════════════════════════════════════════════════════════════
+        # Card 1 — Telegram Bot
+        # ═════════════════════════════════════════════════════════════════════
+        tg_frame, tg_lay = _settings_card("🤖", t("set.tg_card"), COLORS["primary_light"])
 
-        # Token row
-        token_row = QHBoxLayout()
+        # — Token label
         token_lbl = QLabel(t("set.token_lbl"))
-        token_lbl.setFixedWidth(100)
+        token_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         token_lbl.setStyleSheet(
-            f"color: {COLORS['text_secondary']}; font-size: 12px;"
-            f" font-weight: 600; background: transparent;"
+            f"color: {COLORS['text_secondary']}; background: transparent;"
         )
+        tg_lay.addWidget(token_lbl)
+
+        # — Token input + show/hide eye
+        token_row = QHBoxLayout()
+        token_row.setSpacing(8)
+
         self.bot_token_input = QLineEdit()
         self.bot_token_input.setPlaceholderText(t("set.token_ph"))
         self.bot_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.bot_token_input.setFixedHeight(42)
+        self.bot_token_input.setStyleSheet(f"""
+            QLineEdit {{
+                background: {COLORS['bg_dark']};
+                color: white;
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 9px;
+                padding: 0 14px;
+                font-size: 13px;
+            }}
+            QLineEdit:focus {{ border: 2px solid {COLORS['primary_light']}; }}
+        """)
 
         show_btn = QPushButton("👁")
-        show_btn.setFixedSize(36, 36)
-        show_btn.setObjectName("secondary")
+        show_btn.setFixedSize(42, 42)
         show_btn.setCheckable(True)
         show_btn.setToolTip(t("set.token_tip"))
+        show_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['bg_light']};
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 9px;
+                font-size: 16px;
+            }}
+            QPushButton:hover {{ background: {COLORS['primary']}; border-color: {COLORS['primary_light']}; }}
+            QPushButton:checked {{ background: {COLORS['primary']}; border-color: {COLORS['primary_light']}; }}
+        """)
         show_btn.toggled.connect(
             lambda on: self.bot_token_input.setEchoMode(
                 QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
             )
         )
-        token_row.addWidget(token_lbl)
         token_row.addWidget(self.bot_token_input)
         token_row.addWidget(show_btn)
         tg_lay.addLayout(token_row)
 
-        # Notify teacher row
-        notif_row = QHBoxLayout()
-        notif_lbl = QLabel(t("set.notif_lbl"))
-        notif_lbl.setFixedWidth(100)
-        notif_lbl.setStyleSheet(
-            f"color: {COLORS['text_secondary']}; font-size: 12px;"
-            f" font-weight: 600; background: transparent;"
-        )
+        # — Notification checkbox in a styled pill
+        notif_pill = QFrame()
+        notif_pill.setStyleSheet(f"""
+            QFrame {{
+                background: rgba(21, 101, 192, 0.12);
+                border: 1px solid rgba(66, 165, 245, 0.28);
+                border-radius: 9px;
+            }}
+        """)
+        notif_pill_lay = QHBoxLayout(notif_pill)
+        notif_pill_lay.setContentsMargins(14, 10, 14, 10)
+        notif_pill_lay.setSpacing(10)
+
+        notif_ico = QLabel("🔔")
+        notif_ico.setFont(QFont("Segoe UI Emoji", 13))
+        notif_ico.setStyleSheet("background: transparent;")
+
         self.notify_check = QCheckBox(t("set.notif_chk"))
         self.notify_check.setChecked(True)
-        notif_row.addWidget(notif_lbl)
-        notif_row.addWidget(self.notify_check)
-        notif_row.addStretch()
-        tg_lay.addLayout(notif_row)
+        self.notify_check.setFont(QFont("Segoe UI", 11))
+        self.notify_check.setStyleSheet("background: transparent; color: white;")
 
-        hint = QLabel(t("set.tg_hint"))
+        notif_pill_lay.addWidget(notif_ico)
+        notif_pill_lay.addWidget(self.notify_check)
+        notif_pill_lay.addStretch()
+        tg_lay.addWidget(notif_pill)
+
+        # — Hint
+        hint = QLabel("ℹ️  " + t("set.tg_hint"))
         hint.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
         )
         hint.setWordWrap(True)
         tg_lay.addWidget(hint)
 
-        test_btn_row = QHBoxLayout()
-        test_btn = QPushButton(t("set.tg_test_btn"))
-        test_btn.setObjectName("secondary")
+        # — Test button
+        test_btn = QPushButton("📨  " + t("set.tg_test_btn"))
+        test_btn.setFixedHeight(38)
+        test_btn.setMaximumWidth(280)
+        test_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        test_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['bg_light']};
+                color: white;
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 9px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['primary']};
+                border-color: {COLORS['primary_light']};
+            }}
+        """)
         test_btn.clicked.connect(self._test_telegram)
-        test_btn_row.addWidget(test_btn)
-        test_btn_row.addStretch()
-        tg_lay.addLayout(test_btn_row)
+        tg_lay.addWidget(test_btn)
 
         root.addWidget(tg_frame)
 
-        # ── Card 2: Parent Telegram Guide ────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # Card 2 — Ota-onalar uchun Telegram yo'riqnoma
+        # ═════════════════════════════════════════════════════════════════════
         par_frame, par_lay = _settings_card(
             "👨‍👩‍👧", t("set.parent_card"), COLORS["accent_light"]
         )
-
-        info_box = QFrame()
-        info_box.setStyleSheet("""
-            QFrame {
-                background: rgba(255, 183, 0, 0.07);
-                border: 1px solid rgba(255, 183, 0, 0.22);
-                border-radius: 10px;
-            }
-        """)
-        info_lay = QVBoxLayout(info_box)
-        info_lay.setContentsMargins(14, 12, 14, 12)
-        info_lay.setSpacing(8)
 
         guide_title = QLabel(t("set.guide_title"))
         guide_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         guide_title.setStyleSheet(
             f"color: {COLORS['accent_light']}; background: transparent;"
         )
-        info_lay.addWidget(guide_title)
+        par_lay.addWidget(guide_title)
 
         _steps = [
             ("1", t("set.step1")),
@@ -496,33 +554,37 @@ class SettingsWidget(QWidget):
             ("4", t("set.step4")),
         ]
         for num, step_txt in _steps:
-            row = QHBoxLayout()
-            row.setSpacing(10)
+            step_row = QHBoxLayout()
+            step_row.setSpacing(12)
+            step_row.setContentsMargins(0, 2, 0, 2)
 
             badge = QLabel(num)
-            badge.setFixedSize(24, 24)
+            badge.setFixedSize(26, 26)
             badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
             badge.setStyleSheet(f"""
                 background: {COLORS['accent']};
                 color: white;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: bold;
+                border-radius: 13px;
             """)
 
             txt = QLabel(step_txt)
+            txt.setFont(QFont("Segoe UI", 11))
             txt.setStyleSheet(
-                f"color: {COLORS['text_primary']}; font-size: 12px; background: transparent;"
+                f"color: {COLORS['text_primary']}; background: transparent;"
             )
             txt.setWordWrap(True)
 
-            row.addWidget(badge)
-            row.addWidget(txt, stretch=1)
-            info_lay.addLayout(row)
+            step_row.addWidget(badge)
+            step_row.addWidget(txt, stretch=1)
+            par_lay.addLayout(step_row)
 
-        par_lay.addWidget(info_box)
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color: {COLORS['border']}; max-height: 1px; margin: 4px 0;")
+        par_lay.addWidget(sep)
 
-        note = QLabel(t("set.parent_note"))
+        note = QLabel("💡  " + t("set.parent_note"))
         note.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
         )
@@ -531,33 +593,43 @@ class SettingsWidget(QWidget):
 
         root.addWidget(par_frame)
 
-        # ── Card 3: Til / Язык ────────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # Card 3 — Til / Язык
+        # ═════════════════════════════════════════════════════════════════════
         lang_frame, lang_lay = _settings_card("🌐", t("lang.title"), COLORS["success_light"])
 
-        lang_row = QHBoxLayout()
+        lang_inner = QHBoxLayout()
+        lang_inner.setSpacing(12)
+
         lang_lbl = QLabel(t("lang.label"))
-        lang_lbl.setFixedWidth(160)
+        lang_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         lang_lbl.setStyleSheet(
-            f"color: {COLORS['text_secondary']}; font-size: 12px;"
-            f" font-weight: 600; background: transparent;"
+            f"color: {COLORS['text_secondary']}; background: transparent;"
         )
+        lang_lbl.setFixedWidth(170)
+
         self._lang_combo = QComboBox()
         self._lang_combo.addItem(t("lang.uz"), "uz")
         self._lang_combo.addItem(t("lang.ru"), "ru")
         cur = get_lang()
         self._lang_combo.setCurrentIndex(0 if cur == "uz" else 1)
-        lang_row.addWidget(lang_lbl)
-        lang_row.addWidget(self._lang_combo)
-        lang_row.addStretch()
-        lang_lay.addLayout(lang_row)
+        self._lang_combo.setFixedHeight(38)
+        self._lang_combo.setFixedWidth(200)
 
         lang_save_btn = QPushButton("✅  " + t("common.save").replace("✅  ", ""))
         lang_save_btn.setObjectName("success")
-        lang_save_btn.setFixedSize(160, 36)
+        lang_save_btn.setFixedSize(140, 38)
         lang_save_btn.clicked.connect(self._save_lang)
-        lang_lay.addWidget(lang_save_btn)
+
+        lang_inner.addWidget(lang_lbl)
+        lang_inner.addWidget(self._lang_combo)
+        lang_inner.addSpacing(8)
+        lang_inner.addWidget(lang_save_btn)
+        lang_inner.addStretch()
+        lang_lay.addLayout(lang_inner)
 
         self._lang_status = QLabel("")
+        self._lang_status.setFont(QFont("Segoe UI", 11))
         self._lang_status.setStyleSheet(
             f"color: {COLORS['success_light']}; font-size: 11px; background: transparent;"
         )
@@ -565,24 +637,37 @@ class SettingsWidget(QWidget):
 
         root.addWidget(lang_frame)
 
-        # ── Card 4: Bot Adminlar ─────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # Card 4 — Bot Adminlar
+        # ═════════════════════════════════════════════════════════════════════
         bot_admin_frame, bot_admin_lay = _settings_card(
-            "🤖", t("set.bot_admin_card"), COLORS["primary_light"]
+            "🛡️", t("set.bot_admin_card"), COLORS["primary_light"]
         )
 
         bot_admin_lbl = QLabel(t("set.bot_admin_lbl"))
+        bot_admin_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         bot_admin_lbl.setStyleSheet(
-            f"color: {COLORS['text_secondary']}; font-size: 12px;"
-            f" font-weight: 600; background: transparent;"
+            f"color: {COLORS['text_secondary']}; background: transparent;"
         )
         bot_admin_lay.addWidget(bot_admin_lbl)
 
         self.bot_admin_input = QTextEdit()
         self.bot_admin_input.setPlaceholderText(t("set.bot_admin_ph"))
-        self.bot_admin_input.setFixedHeight(90)
+        self.bot_admin_input.setFixedHeight(88)
+        self.bot_admin_input.setStyleSheet(f"""
+            QTextEdit {{
+                background: {COLORS['bg_dark']};
+                color: white;
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 9px;
+                padding: 8px 12px;
+                font-size: 13px;
+            }}
+            QTextEdit:focus {{ border: 2px solid {COLORS['primary_light']}; }}
+        """)
         bot_admin_lay.addWidget(self.bot_admin_input)
 
-        bot_admin_hint = QLabel(t("set.bot_admin_hint"))
+        bot_admin_hint = QLabel("ℹ️  " + t("set.bot_admin_hint"))
         bot_admin_hint.setStyleSheet(
             f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
         )
@@ -590,13 +675,34 @@ class SettingsWidget(QWidget):
         bot_admin_lay.addWidget(bot_admin_hint)
 
         bot_admin_save_row = QHBoxLayout()
-        bot_admin_save_btn = QPushButton(t("set.bot_admin_save"))
-        bot_admin_save_btn.setObjectName("secondary")
+        bot_admin_save_row.setSpacing(12)
+
+        bot_admin_save_btn = QPushButton("💾  " + t("set.bot_admin_save"))
+        bot_admin_save_btn.setFixedHeight(38)
+        bot_admin_save_btn.setMaximumWidth(260)
+        bot_admin_save_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        bot_admin_save_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['bg_light']};
+                color: white;
+                border: 1.5px solid {COLORS['border']};
+                border-radius: 9px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: {COLORS['primary']};
+                border-color: {COLORS['primary_light']};
+            }}
+        """)
         bot_admin_save_btn.clicked.connect(self._save_bot_admins)
+
         self._bot_admin_status = QLabel("")
+        self._bot_admin_status.setFont(QFont("Segoe UI", 11))
         self._bot_admin_status.setStyleSheet(
-            f"color: {COLORS['success_light']}; font-size: 11px; background: transparent;"
+            f"color: {COLORS['success_light']}; background: transparent;"
         )
+
         bot_admin_save_row.addWidget(bot_admin_save_btn)
         bot_admin_save_row.addWidget(self._bot_admin_status)
         bot_admin_save_row.addStretch()
@@ -604,21 +710,92 @@ class SettingsWidget(QWidget):
 
         root.addWidget(bot_admin_frame)
 
-        # ── Save row ─────────────────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # Card 5 — Parolni o'zgartirish
+        # ═════════════════════════════════════════════════════════════════════
+        pwd_frame, pwd_lay = _settings_card("🔐", t("pwd.card"), COLORS["primary_light"])
+
+        def _pwd_row(lbl_key, ph_key, echo=QLineEdit.EchoMode.Password):
+            lbl = QLabel(t(lbl_key))
+            lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+            inp = QLineEdit()
+            inp.setPlaceholderText(t(ph_key))
+            inp.setEchoMode(echo)
+            inp.setFixedHeight(36)
+            inp.setStyleSheet(f"""
+                QLineEdit {{
+                    background: {COLORS['input_bg']}; border: 1px solid {COLORS['border']};
+                    border-radius: 8px; padding: 0 10px; color: {COLORS['text_primary']};
+                }}
+                QLineEdit:focus {{ border-color: {COLORS['primary']}; }}
+            """)
+            pwd_lay.addWidget(lbl)
+            pwd_lay.addWidget(inp)
+            return inp
+
+        self._pwd_old  = _pwd_row("pwd.old",  "pwd.ph_old")
+        self._pwd_new  = _pwd_row("pwd.new",  "pwd.ph_new")
+        self._pwd_new2 = _pwd_row("pwd.new2", "pwd.ph_new2")
+
+        self._pwd_status = QLabel("")
+        self._pwd_status.setFont(QFont("Segoe UI", 10))
+        self._pwd_status.setWordWrap(True)
+
+        pwd_save_btn = QPushButton("💾  " + t("pwd.btn"))
+        pwd_save_btn.setObjectName("secondary")
+        pwd_save_btn.setFixedHeight(38)
+        pwd_save_btn.clicked.connect(self._change_password)
+
+        pwd_btn_row = QHBoxLayout()
+        pwd_btn_row.addWidget(pwd_save_btn)
+        pwd_btn_row.addWidget(self._pwd_status)
+        pwd_btn_row.addStretch()
+        pwd_lay.addLayout(pwd_btn_row)
+
+        root.addWidget(pwd_frame)
+
+        # ── Bottom save row ───────────────────────────────────────────────────
+        save_sep = QFrame()
+        save_sep.setFrameShape(QFrame.Shape.HLine)
+        save_sep.setStyleSheet(f"color: {COLORS['border']}; max-height: 1px;")
+        root.addWidget(save_sep)
+
         save_row = QHBoxLayout()
-        save_row.addStretch()
-        save_btn = QPushButton(t("set.save_btn"))
-        save_btn.setObjectName("success")
-        save_btn.setFixedSize(230, 40)
+        save_row.setContentsMargins(0, 4, 0, 0)
+
+        self.status_label = QLabel("")
+        self.status_label.setFont(QFont("Segoe UI", 11))
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        save_btn = QPushButton("💾  " + t("set.save_btn"))
+        save_btn.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        save_btn.setFixedSize(240, 44)
+        save_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {COLORS['success']}, stop:1 #388E3C);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #388E3C, stop:1 {COLORS['success_light']});
+            }}
+            QPushButton:pressed {{ background: {COLORS['success']}; }}
+        """)
         save_btn.clicked.connect(self._save_settings)
+
+        save_row.addWidget(self.status_label, stretch=1)
         save_row.addWidget(save_btn)
         root.addLayout(save_row)
 
-        self.status_label = QLabel("")
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        root.addWidget(self.status_label)
-
         root.addStretch()
+
+        scroll.setWidget(inner)
+        outer_lay.addWidget(scroll)
 
     # ── Data ──────────────────────────────────────────────────────────────────
 
@@ -692,6 +869,31 @@ class SettingsWidget(QWidget):
                 f"color: {COLORS['danger_light']}; font-size: 11px; background: transparent;"
             )
 
+    def _change_password(self):
+        old  = self._pwd_old.text()
+        new  = self._pwd_new.text()
+        new2 = self._pwd_new2.text()
+        if not old or not new:
+            self._pwd_status.setText(t("common.fill_all"))
+            self._pwd_status.setStyleSheet(f"color: {COLORS['danger_light']}; background: transparent;")
+            return
+        if new != new2:
+            self._pwd_status.setText(t("pwd.mismatch"))
+            self._pwd_status.setStyleSheet(f"color: {COLORS['danger_light']}; background: transparent;")
+            return
+        try:
+            api.change_my_password(old, new)
+            self._pwd_old.clear(); self._pwd_new.clear(); self._pwd_new2.clear()
+            self._pwd_status.setText(t("pwd.saved"))
+            self._pwd_status.setStyleSheet(f"color: {COLORS['success_light']}; background: transparent;")
+        except APIError as e:
+            err = str(e)
+            if "noto'g'ri" in err or "неверен" in err or "400" in err:
+                self._pwd_status.setText(t("pwd.old_wrong"))
+            else:
+                self._pwd_status.setText(err)
+            self._pwd_status.setStyleSheet(f"color: {COLORS['danger_light']}; background: transparent;")
+
     def _test_telegram(self):
         try:
             settings = api.get_settings()
@@ -725,9 +927,14 @@ class LogsWidget(QWidget):
         refresh_btn.setObjectName("secondary")
         refresh_btn.clicked.connect(self.refresh)
 
+        clear_btn = QPushButton(t("log.clear"))
+        clear_btn.setObjectName("danger")
+        clear_btn.clicked.connect(self._clear_logs)
+
         toolbar.addWidget(title)
         toolbar.addStretch()
         toolbar.addWidget(refresh_btn)
+        toolbar.addWidget(clear_btn)
         layout.addLayout(toolbar)
 
         self.table = QTableWidget()
@@ -764,5 +971,20 @@ class LogsWidget(QWidget):
                     item = QTableWidgetItem(val)
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.table.setItem(row, col, item)
+        except APIError as e:
+            QMessageBox.warning(self, t("common.error"), str(e))
+
+    def _clear_logs(self):
+        ans = QMessageBox.question(
+            self, t("log.clear"), t("log.clear_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            res = api.clear_audit_logs()
+            n = res.get("deleted", 0)
+            self.table.setRowCount(0)
+            QMessageBox.information(self, t("log.clear"), t("log.cleared").format(n=n))
         except APIError as e:
             QMessageBox.warning(self, t("common.error"), str(e))

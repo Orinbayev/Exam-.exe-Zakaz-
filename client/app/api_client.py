@@ -261,6 +261,13 @@ class APIClient:
     def get_audit_logs(self) -> list:
         return self._request("GET", "/api/stats/audit-logs")
 
+    def clear_audit_logs(self) -> dict:
+        return self._request("DELETE", "/api/settings/logs")
+
+    def change_my_password(self, old_password: str, new_password: str) -> dict:
+        return self._request("POST", "/api/settings/change-password",
+                             params={"old_password": old_password, "new_password": new_password})
+
     # ── Settings ──────────────────────────────────────────────────────────────
 
     def get_settings(self) -> dict:

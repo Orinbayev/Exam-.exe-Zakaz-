@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from typing import List
 import io
 from ..database import get_db
-from ..models import SystemSettings, ExamSession
+from ..models import SystemSettings, ExamSession, AuditLog
 from ..schemas import SettingUpdate
-from ..auth import require_superadmin, require_teacher_or_admin
+from ..auth import require_superadmin, require_teacher_or_admin, verify_password, hash_password
 from ..models import User
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -58,6 +58,35 @@ def save_telegram_settings(
             db.add(SystemSettings(key=key, value=value))
     db.commit()
     return {"message": "Telegram sozlamalari saqlandi"}
+
+
+@router.delete("/logs")
+def clear_audit_logs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    """Barcha audit loglarni o'chirish (faqat superadmin)."""
+    count = db.query(AuditLog).count()
+    db.query(AuditLog).delete()
+    db.commit()
+    return {"message": f"{count} ta log o'chirildi", "deleted": count}
+
+
+@router.post("/change-password")
+def change_password(
+    old_password: str,
+    new_password: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    """Superadmin o'z parolini o'zgartiradi."""
+    if not verify_password(old_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Joriy parol noto'g'ri")
+    if len(new_password) < 4:
+        raise HTTPException(status_code=400, detail="Yangi parol kamida 4 ta belgi bo'lishi kerak")
+    current_user.password_hash = hash_password(new_password)
+    db.commit()
+    return {"message": "Parol muvaffaqiyatli o'zgartirildi"}
 
 
 @router.get("/export/excel")

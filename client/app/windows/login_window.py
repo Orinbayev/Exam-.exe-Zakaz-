@@ -234,11 +234,9 @@ class LoginWindow(QMainWindow):
         cl.setContentsMargins(28, 28, 28, 28)
         cl.setSpacing(14)
 
-        # Server IP
-        srv_w, self.server_input = _input_block(t("login.server_label"))
-        self.server_input.setPlaceholderText("https://exam-server-vq86.onrender.com")
+        # Server URL yashirin — Config dan avtomatik olinadi
+        self.server_input = QLineEdit()
         self.server_input.setText(Config.server_url())
-        cl.addWidget(srv_w)
 
         # Username
         usr_w, self.username_input = _input_block(t("login.user_label"))
@@ -371,12 +369,10 @@ class LoginWindow(QMainWindow):
     # ── Login mantiq ─────────────────────────────────────────────────────────
 
     def _do_login(self):
-        server = self.server_input.text().strip()
+        server = self.server_input.text().strip() or Config.server_url()
         user   = self.username_input.text().strip()
         passw  = self.password_input.text()
 
-        if not server:
-            return self._err(t("login.err_server"))
         if not user:
             return self._err(t("login.err_user"))
         if not passw:

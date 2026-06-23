@@ -11,13 +11,13 @@ from PyQt6.QtGui import QFont, QColor, QPainter, QPen, QBrush, QLinearGradient
 from ...i18n import ts
 
 
-# ── Javob ranglari — yorqin, to'yingan ───────────────────────────────────────
+# ── Javob ranglari ────────────────────────────────────────────────────────────
 
 ANSWER_CFG = {
-    "A": ("#B71C1C", "#FF1744"),   # yorqin qizil
-    "B": ("#0D47A1", "#2979FF"),   # yorqin ko'k
-    "C": ("#1B5E20", "#00E676"),   # yorqin yashil
-    "D": ("#BF360C", "#FF6D00"),   # yorqin to'q sariq-to'q
+    "A": ("#7B1520", "#C0392B"),   # chuqur qizil
+    "B": ("#0D3B6E", "#1565C0"),   # chuqur ko'k
+    "C": ("#155724", "#1E8449"),   # chuqur yashil
+    "D": ("#7D3C00", "#D35400"),   # chuqur to'q sariq
 }
 
 KB = {
@@ -28,7 +28,7 @@ KB = {
 }
 
 
-# ── Javob tugmasi ─────────────────────────────────────────────────────────────
+# ── Javob tugmasi — badge + matn ──────────────────────────────────────────────
 
 class ABtn(QPushButton):
     def __init__(self, letter: str, parent=None):
@@ -36,38 +36,70 @@ class ABtn(QPushButton):
         self.letter = letter
         self._dark, self._light = ANSWER_CFG[letter]
         self._sel = False
-        self.setFixedHeight(56)
+        self.setFixedHeight(68)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        self.setText("")  # layout ichida ko'rsatiladi
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(14, 10, 20, 10)
+        lay.setSpacing(16)
+
+        # Doira badge — harf
+        self._badge = QLabel(letter)
+        self._badge.setFixedSize(44, 44)
+        self._badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._badge.setFont(QFont("Arial", 17, QFont.Weight.Bold))
+        self._badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        # Javob matni
+        self._lbl = QLabel("")
+        self._lbl.setFont(QFont("Arial", 13))
+        self._lbl.setWordWrap(False)
+        self._lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        lay.addWidget(self._badge)
+        lay.addWidget(self._lbl, stretch=1)
         self._draw()
 
     def _draw(self):
         d, lt = self._dark, self._light
         if self._sel:
-            bg  = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {lt},stop:1 {d})"
-            bdr = "3px solid #FFD740"
-            glow = f"background:{lt}22;"
+            btn_bg  = (f"qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+                       f"stop:0 {lt}, stop:1 {lt}CC)")
+            btn_bdr = "3px solid #FFD740"
+            badge_s = ("background: rgba(255,255,255,0.30);"
+                       "color: white; border-radius: 22px;"
+                       "font-size: 17px; font-weight: bold;")
+            txt_s   = ("color: white; background: transparent;"
+                       "font-size: 13px; font-weight: bold;")
         else:
-            bg  = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {d},stop:1 {lt})"
-            bdr = "2px solid rgba(255,255,255,0.20)"
+            btn_bg  = (f"qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+                       f"stop:0 {d}, stop:0.55 {d}, stop:1 {lt})")
+            btn_bdr = "1.5px solid rgba(255,255,255,0.18)"
+            badge_s = ("background: rgba(255,255,255,0.20);"
+                       "color: rgba(255,255,255,0.95);"
+                       "border-radius: 22px;"
+                       "font-size: 17px; font-weight: bold;")
+            txt_s   = ("color: rgba(255,255,255,0.90);"
+                       "background: transparent; font-size: 13px;")
+
         self.setStyleSheet(f"""
             QPushButton {{
-                background: {bg};
-                color: white;
-                border: {bdr};
-                border-radius: 14px;
-                padding-left: 18px;
-                text-align: left;
-                font-size: 14px;
-                font-weight: bold;
+                background: {btn_bg};
+                border: {btn_bdr};
+                border-radius: 18px;
             }}
             QPushButton:hover {{
-                border: 2.5px solid rgba(255,255,255,0.75);
+                border: 2.5px solid rgba(255,255,255,0.60);
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 {d}, stop:1 {lt});
             }}
         """)
+        self._badge.setStyleSheet(badge_s)
+        self._lbl.setStyleSheet(txt_s)
 
     def set_text(self, txt: str):
-        self.setText(f"  {self.letter}    {txt}")
+        self._lbl.setText(txt)
 
     def set_sel(self, yes: bool):
         if self._sel != yes:
@@ -156,20 +188,20 @@ class ExamWindow(QMainWindow):
         total = len(self.qs)
 
         self.setWindowTitle(ts("exam.window_title", name=self.name))
-        self.resize(980, 700)
-        self.setMinimumSize(800, 580)
+        self.resize(1020, 720)
+        self.setMinimumSize(820, 600)
         scr = self.screen().availableGeometry()
-        self.move((scr.width()-980)//2, (scr.height()-700)//2)
+        self.move((scr.width() - 1020) // 2, (scr.height() - 720) // 2)
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
 
-        # Yorqin, rang-barang fon — binafsha → ko'k-violet
+        # Asosiy fon — chuqur to'q ko'k
         root = QWidget()
         root.setStyleSheet("""
             QWidget {
                 background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #0F0C29,
-                    stop:0.45 #302B63,
-                    stop:1 #24243E);
+                    stop:0 #0A0F2E,
+                    stop:0.50 #101843,
+                    stop:1 #0A1029);
                 font-family: 'Arial', 'Helvetica', sans-serif;
                 color: white;
             }
@@ -182,76 +214,86 @@ class ExamWindow(QMainWindow):
         outer.setSpacing(0)
 
         # ══════════════════════════════════════════════════════════════════════
-        # HEADER — rangli
+        # HEADER
         # ══════════════════════════════════════════════════════════════════════
         hdr = QWidget()
-        hdr.setFixedHeight(56)
+        hdr.setFixedHeight(62)
         hdr.setStyleSheet("""
             background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                stop:0 rgba(58,12,163,0.85),
-                stop:1 rgba(0,119,182,0.85));
-            border-bottom: 1.5px solid rgba(255,255,255,0.18);
+                stop:0 #1a1060,
+                stop:0.55 #1a3a6e,
+                stop:1 #0d2b52);
+            border-bottom: 2px solid rgba(100,140,255,0.22);
         """)
         hdr_lay = QHBoxLayout(hdr)
-        hdr_lay.setContentsMargins(20, 0, 20, 0)
-        hdr_lay.setSpacing(14)
+        hdr_lay.setContentsMargins(24, 0, 24, 0)
+        hdr_lay.setSpacing(16)
 
-        fan = QLabel(f"📚  {self.name}")
+        fan_ico = QLabel("📚")
+        fan_ico.setFont(QFont("Segoe UI Emoji", 18))
+        fan_ico.setStyleSheet("color:white;")
+        hdr_lay.addWidget(fan_ico)
+
+        fan = QLabel(self.name)
         fan.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        fan.setStyleSheet("color: white;")
+        fan.setStyleSheet("color:white;")
         hdr_lay.addWidget(fan)
         hdr_lay.addStretch()
 
         self._cnt = QLabel(f"1 / {total}")
         self._cnt.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self._cnt.setFixedWidth(80)
+        self._cnt.setFixedSize(90, 36)
         self._cnt.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._cnt.setStyleSheet(
-            "background:rgba(255,255,255,0.20);border-radius:10px;"
-            "padding:4px 0;color:white;"
+            "background:rgba(255,255,255,0.12);"
+            "border:1.5px solid rgba(255,255,255,0.22);"
+            "border-radius:10px;color:white;"
         )
         hdr_lay.addWidget(self._cnt)
 
         self._tlbl = QLabel("⏱  00:00")
         self._tlbl.setFont(QFont("Arial", 15, QFont.Weight.Bold))
-        self._tlbl.setFixedWidth(120)
+        self._tlbl.setFixedSize(130, 36)
         self._tlbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._tlbl.setStyleSheet(
-            "background:rgba(255,215,0,0.25);border-radius:10px;"
-            "padding:4px 0;color:#FFD740;border:1.5px solid rgba(255,215,0,0.40);"
+            "background:rgba(255,215,0,0.18);"
+            "border:1.5px solid rgba(255,215,0,0.35);"
+            "border-radius:10px;color:#FFD740;"
         )
         hdr_lay.addWidget(self._tlbl)
         outer.addWidget(hdr)
 
-        # PROGRESS — uchta rang: binafsha→ko'k→yashil
+        # Progress bar
         self._pbar = QProgressBar()
         self._pbar.setMaximum(total)
         self._pbar.setValue(0)
         self._pbar.setTextVisible(False)
-        self._pbar.setFixedHeight(5)
+        self._pbar.setFixedHeight(4)
         self._pbar.setStyleSheet("""
-            QProgressBar{background:rgba(255,255,255,0.10);border:none;}
-            QProgressBar::chunk{
-                background:qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #F72585, stop:0.5 #7209B7, stop:1 #4CC9F0);
-                border-radius:2px;
+            QProgressBar { background:rgba(255,255,255,0.08); border:none; }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #7C4DFF, stop:0.5 #536DFE, stop:1 #40C4FF);
             }
         """)
         outer.addWidget(self._pbar)
 
         # ══════════════════════════════════════════════════════════════════════
-        # NAV DOTS — raqamli yo'riqnoma
+        # SAVOLLAR NAV DOTS
         # ══════════════════════════════════════════════════════════════════════
         nav_w = QWidget()
-        nav_w.setFixedHeight(46)
-        nav_w.setStyleSheet("background:rgba(255,255,255,0.05);")
+        nav_w.setFixedHeight(50)
+        nav_w.setStyleSheet("background:rgba(255,255,255,0.04);")
         nav_lay = QHBoxLayout(nav_w)
-        nav_lay.setContentsMargins(18, 7, 18, 7)
-        nav_lay.setSpacing(8)
+        nav_lay.setContentsMargins(20, 8, 20, 8)
+        nav_lay.setSpacing(10)
 
         n_lbl = QLabel(ts("exam.questions"))
-        n_lbl.setFont(QFont("Arial", 9))
-        n_lbl.setStyleSheet("color:rgba(255,255,255,0.50);")
+        n_lbl.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+        n_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.40);"
+            "letter-spacing:1px;"
+        )
         nav_lay.addWidget(n_lbl)
 
         sc = QScrollArea()
@@ -259,27 +301,34 @@ class ExamWindow(QMainWindow):
         sc.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         sc.setFrameShape(QFrame.Shape.NoFrame)
         sc.setStyleSheet("background:transparent;border:none;")
-        sc.setFixedHeight(34)
+        sc.setFixedHeight(36)
 
-        inner = QWidget()
-        inner.setStyleSheet("background:transparent;")
-        inner_lay = QHBoxLayout(inner)
-        inner_lay.setContentsMargins(0,0,0,0)
-        inner_lay.setSpacing(5)
+        dots_w = QWidget()
+        dots_w.setStyleSheet("background:transparent;")
+        dots_lay = QHBoxLayout(dots_w)
+        dots_lay.setContentsMargins(0, 0, 0, 0)
+        dots_lay.setSpacing(5)
 
         self._dots: list[Dot] = []
         for i in range(total):
             d = Dot(i + 1)
             d.clicked.connect(lambda _, x=i: self._jump(x))
-            inner_lay.addWidget(d)
+            dots_lay.addWidget(d)
             self._dots.append(d)
-        inner_lay.addStretch()
-        sc.setWidget(inner)
+        dots_lay.addStretch()
+        sc.setWidget(dots_w)
         nav_lay.addWidget(sc, stretch=1)
 
+        # Javob statistikasi
         self._stat = QLabel("✅ 0  ⬜ 0")
         self._stat.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self._stat.setStyleSheet("color:rgba(255,255,255,0.70);")
+        self._stat.setFixedHeight(30)
+        self._stat.setStyleSheet(
+            "color:rgba(255,255,255,0.65);"
+            "background:rgba(255,255,255,0.07);"
+            "border-radius:8px;"
+            "padding: 0 10px;"
+        )
         nav_lay.addWidget(self._stat)
         outer.addWidget(nav_w)
 
@@ -289,54 +338,66 @@ class ExamWindow(QMainWindow):
         content = QWidget()
         content.setStyleSheet("background:transparent;")
         cnt_lay = QVBoxLayout(content)
-        cnt_lay.setContentsMargins(24, 16, 24, 10)
-        cnt_lay.setSpacing(10)
+        cnt_lay.setContentsMargins(32, 18, 32, 12)
+        cnt_lay.setSpacing(11)
 
-        # Savol karta — oq shisha effekt
+        # Savol karta — glassmorphism
         q_card = QFrame()
         q_card.setStyleSheet("""
             QFrame {
-                background: rgba(255,255,255,0.12);
-                border: 2px solid rgba(255,255,255,0.28);
+                background: rgba(255,255,255,0.08);
+                border: 1.5px solid rgba(120,160,255,0.25);
+                border-left: 4px solid #536DFE;
                 border-radius: 18px;
             }
         """)
         q_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         qcl = QVBoxLayout(q_card)
-        qcl.setContentsMargins(22, 16, 22, 16)
-        qcl.setSpacing(6)
+        qcl.setContentsMargins(24, 14, 24, 14)
+        qcl.setSpacing(8)
 
-        self._qnum = QLabel("Savol 1")
-        self._qnum.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        # Savol raqami — small badge
+        self._qnum = QLabel()
+        self._qnum.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+        self._qnum.setFixedHeight(22)
         self._qnum.setStyleSheet(
-            "color:rgba(255,255,255,0.55);letter-spacing:1.5px;"
+            "color:rgba(120,160,255,0.90);"
+            "letter-spacing:2px;"
             "background:transparent;"
         )
         qcl.addWidget(self._qnum)
 
+        # Savol matni
         self._qtxt = QLabel("")
         self._qtxt.setFont(QFont("Arial", 15))
         self._qtxt.setWordWrap(True)
-        self._qtxt.setStyleSheet("color:white;line-height:1.5;background:transparent;")
+        self._qtxt.setStyleSheet(
+            "color:white;"
+            "background:transparent;"
+            "line-height: 1.5;"
+        )
         self._qtxt.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         qcl.addWidget(self._qtxt)
 
         cnt_lay.addWidget(q_card)
 
-        # Javob tugmalari — 4 ta yorqin rang
+        # Javob tugmalari — 4 ta
         self._btns: dict[str, ABtn] = {}
-        for letter in ("A","B","C","D"):
+        for letter in ("A", "B", "C", "D"):
             b = ABtn(letter)
             b.clicked.connect(lambda _, l=letter: self._select(l))
             cnt_lay.addWidget(b)
             self._btns[letter] = b
 
-        # Status matni
-        self._status = QLabel("Javob tanlang yoki keyingi savolga o'ting")
-        self._status.setFont(QFont("Arial", 11))
+        # Status pill
+        self._status = QLabel(ts("exam.status_none") if False else "")
+        self._status.setFixedHeight(34)
+        self._status.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         self._status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._status.setStyleSheet(
-            "color:rgba(255,255,255,0.45);background:transparent;"
+            "color:rgba(255,255,255,0.35);"
+            "background:rgba(255,255,255,0.06);"
+            "border-radius:17px;"
         )
         cnt_lay.addWidget(self._status)
         cnt_lay.addStretch()
@@ -347,37 +408,48 @@ class ExamWindow(QMainWindow):
         # PASTKI NAVIGATSIYA
         # ══════════════════════════════════════════════════════════════════════
         bot = QWidget()
-        bot.setFixedHeight(64)
+        bot.setFixedHeight(68)
         bot.setStyleSheet("""
             background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                stop:0 rgba(58,12,163,0.75),
-                stop:1 rgba(0,119,182,0.75));
-            border-top: 1.5px solid rgba(255,255,255,0.15);
+                stop:0 #0f0c35, stop:1 #0a1a38);
+            border-top: 1.5px solid rgba(100,140,255,0.18);
         """)
         bot_lay = QHBoxLayout(bot)
-        bot_lay.setContentsMargins(22, 9, 22, 9)
-        bot_lay.setSpacing(12)
+        bot_lay.setContentsMargins(24, 10, 24, 10)
+        bot_lay.setSpacing(14)
 
         self._prev = QPushButton(ts("exam.prev"))
-        self._prev.setFixedSize(150, 46)
+        self._prev.setFixedSize(160, 48)
         self._prev.setFont(QFont("Arial", 13, QFont.Weight.Bold))
         self._prev.setCursor(Qt.CursorShape.PointingHandCursor)
         self._prev.setStyleSheet("""
-            QPushButton{background:rgba(255,255,255,0.15);color:white;
-                border:2px solid rgba(255,255,255,0.35);border-radius:12px;}
-            QPushButton:hover{background:rgba(255,255,255,0.28);border-color:white;}
-            QPushButton:disabled{color:rgba(255,255,255,0.20);
-                border-color:rgba(255,255,255,0.10);background:rgba(255,255,255,0.05);}
+            QPushButton {
+                background: rgba(255,255,255,0.10);
+                color: rgba(255,255,255,0.80);
+                border: 1.5px solid rgba(255,255,255,0.22);
+                border-radius: 14px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background: rgba(255,255,255,0.20);
+                color: white;
+                border-color: rgba(255,255,255,0.55);
+            }
+            QPushButton:disabled {
+                color: rgba(255,255,255,0.18);
+                border-color: rgba(255,255,255,0.08);
+                background: rgba(255,255,255,0.03);
+            }
         """)
         self._prev.clicked.connect(self._go_prev)
 
         hint = QLabel(ts("exam.hint"))
-        hint.setFont(QFont("Arial", 10))
-        hint.setStyleSheet("color:rgba(255,255,255,0.40);")
+        hint.setFont(QFont("Arial", 9))
+        hint.setStyleSheet("color:rgba(255,255,255,0.28);")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._next = QPushButton(ts("exam.next"))
-        self._next.setFixedSize(180, 46)
+        self._next.setFixedSize(190, 48)
         self._next.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         self._next.setCursor(Qt.CursorShape.PointingHandCursor)
         self._next.setStyleSheet(self._next_style(last=False))
@@ -393,24 +465,44 @@ class ExamWindow(QMainWindow):
     def _next_style(self, last: bool) -> str:
         if last:
             return """
-                QPushButton{
-                    background:qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                        stop:0 #00BFA5,stop:1 #00E676);
-                    color:white;border:2px solid #69F0AE;border-radius:12px;
-                    font-size:14px;font-weight:bold;
+                QPushButton {
+                    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                        stop:0 #00897B, stop:1 #00C853);
+                    color: white;
+                    border: 2px solid rgba(0,200,83,0.50);
+                    border-radius: 14px;
+                    font-size: 14px;
+                    font-weight: bold;
                 }
-                QPushButton:hover{background:#00E676;border-color:white;}
-                QPushButton:disabled{background:rgba(255,255,255,0.10);border-color:transparent;}
+                QPushButton:hover {
+                    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                        stop:0 #00A693, stop:1 #00E676);
+                    border-color: #69F0AE;
+                }
+                QPushButton:disabled {
+                    background: rgba(255,255,255,0.10);
+                    border-color: transparent;
+                    color: rgba(255,255,255,0.30);
+                }
             """
         return """
-            QPushButton{
-                background:qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #F72585,stop:1 #7209B7);
-                color:white;border:none;border-radius:12px;
-                font-size:14px;font-weight:bold;
+            QPushButton {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #3949AB, stop:1 #536DFE);
+                color: white;
+                border: none;
+                border-radius: 14px;
+                font-size: 14px;
+                font-weight: bold;
             }
-            QPushButton:hover{background:#F72585;}
-            QPushButton:disabled{background:rgba(255,255,255,0.10);}
+            QPushButton:hover {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #536DFE, stop:1 #82B1FF);
+            }
+            QPushButton:disabled {
+                background: rgba(255,255,255,0.10);
+                color: rgba(255,255,255,0.30);
+            }
         """
 
     # ── Savol yuklash ─────────────────────────────────────────────────────────
@@ -446,10 +538,20 @@ class ExamWindow(QMainWindow):
 
         if sel:
             self._status.setText(ts("exam.status_sel", l=sel))
-            self._status.setStyleSheet("color:#00E676;background:transparent;font-weight:bold;")
+            self._status.setStyleSheet(
+                "color:#00E676;"
+                "background:rgba(0,230,118,0.12);"
+                "border:1px solid rgba(0,230,118,0.30);"
+                "border-radius:17px;"
+                "font-weight:bold;"
+            )
         else:
             self._status.setText(ts("exam.status_none"))
-            self._status.setStyleSheet("color:rgba(255,255,255,0.45);background:transparent;")
+            self._status.setStyleSheet(
+                "color:rgba(255,255,255,0.35);"
+                "background:rgba(255,255,255,0.06);"
+                "border-radius:17px;"
+            )
 
     # ── Javob ─────────────────────────────────────────────────────────────────
 
