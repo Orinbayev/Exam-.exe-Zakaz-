@@ -59,3 +59,38 @@ def set_user_lang(telegram_id: str, lang: str):
             db.commit()
     finally:
         db.close()
+
+
+def add_bot_admin(telegram_id: str) -> bool:
+    """Admin qo'shish. True — muvaffaqiyatli, False — allaqachon bor."""
+    db = SessionLocal()
+    try:
+        s = db.query(SystemSettings).filter(SystemSettings.key == "bot_admin_ids").first()
+        admins = json.loads(s.value) if s and s.value else []
+        if str(telegram_id) in admins:
+            return False
+        admins.append(str(telegram_id))
+        if s:
+            s.value = json.dumps(admins)
+        else:
+            db.add(SystemSettings(key="bot_admin_ids", value=json.dumps(admins)))
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+
+def remove_bot_admin(telegram_id: str) -> bool:
+    """Admin o'chirish. True — o'chirildi, False — topilmadi."""
+    db = SessionLocal()
+    try:
+        s = db.query(SystemSettings).filter(SystemSettings.key == "bot_admin_ids").first()
+        admins = json.loads(s.value) if s and s.value else []
+        if str(telegram_id) not in admins:
+            return False
+        admins.remove(str(telegram_id))
+        s.value = json.dumps(admins)
+        db.commit()
+        return True
+    finally:
+        db.close()

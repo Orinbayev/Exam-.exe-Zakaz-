@@ -5,7 +5,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd, StudentEdit, ClassEdit
+from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd, StudentEdit, ClassEdit, AdminAdd
 from .texts import T
 from .keyboards import (
     admin_main_kb, back_admin_kb, subjects_kb,
@@ -15,8 +15,9 @@ from .keyboards import (
     subjects_list_kb, fan_manage_kb, fan_del_confirm_kb,
     cls_manage_kb, cls_del_confirm_kb,
     students_list_kb, student_manage_kb, std_del_confirm_kb,
+    admins_manage_kb, admin_add_confirm_kb, admin_del_confirm_kb,
 )
-from .helpers import get_or_create_bot_user, is_bot_admin
+from .helpers import get_or_create_bot_user, is_bot_admin, get_bot_admins, add_bot_admin, remove_bot_admin
 from ..database import SessionLocal
 from ..models import (
     Category, Question, ExamSession, Student, StudentClass,
@@ -1272,16 +1273,134 @@ async def admin_admins(call: CallbackQuery):
         await call.answer(T(lang, "not_admin"), show_alert=True)
         return
 
-    from .helpers import get_bot_admins
     admins = get_bot_admins()
     if admins:
-        admin_list = "".join(T(lang, "admin_row", tid=a) for a in admins)
+        admin_list = "".join(T(lang, "admin_row", tid=a, name="") for a in admins)
     else:
-        admin_list = T(lang, "no_admins")
+        admin_list = T(lang, "no_admins") + "\n"
 
     await call.message.edit_text(
         T(lang, "admins_title", list=admin_list),
+        reply_markup=admins_manage_kb(lang, admins, tid),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+# ── Admin qo'shish ─────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data == "admin_add_start")
+async def admin_add_start(call: CallbackQuery, state: FSMContext):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+    await state.set_state(AdminAdd.telegram_id)
+    await call.message.edit_text(
+        T(lang, "admin_add_prompt"),
         reply_markup=back_admin_kb(lang),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.message(AdminAdd.telegram_id)
+async def admin_add_get_id(msg: Message, state: FSMContext):
+    tid = str(msg.from_user.id)
+    lang = _lang(tid)
+    new_id = msg.text.strip() if msg.text else ""
+
+    if not new_id.lstrip("-").isdigit():
+        await msg.answer(T(lang, "admin_add_invalid"), parse_mode="HTML")
+        return
+
+    admins = get_bot_admins()
+    if new_id in admins:
+        await state.clear()
+        await msg.answer(T(lang, "admin_add_exists"), parse_mode="HTML")
+        return
+
+    await state.update_data(new_admin_id=new_id)
+    await state.set_state(AdminAdd.confirm)
+    await msg.answer(
+        T(lang, "admin_add_confirm", tid=new_id),
+        reply_markup=admin_add_confirm_kb(lang, new_id),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("admin_add_ok:"))
+async def admin_add_ok(call: CallbackQuery, state: FSMContext):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    new_id = call.data.split(":", 1)[1]
+    await state.clear()
+    add_bot_admin(new_id)
+
+    await call.message.edit_text(
+        T(lang, "admin_added", tid=new_id),
+        parse_mode="HTML",
+    )
+    # Yangi ro'yxatni ko'rsat
+    admins = get_bot_admins()
+    admin_list = "".join(T(lang, "admin_row", tid=a, name="") for a in admins) or T(lang, "no_admins") + "\n"
+    await call.message.answer(
+        T(lang, "admins_title", list=admin_list),
+        reply_markup=admins_manage_kb(lang, admins, tid),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+# ── Admin o'chirish ────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("admin_del_ask:"))
+async def admin_del_ask(call: CallbackQuery):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    del_id = call.data.split(":", 1)[1]
+    if del_id == tid:
+        await call.answer(T(lang, "admin_del_self"), show_alert=True)
+        return
+
+    await call.message.edit_text(
+        T(lang, "admin_del_confirm", tid=del_id),
+        reply_markup=admin_del_confirm_kb(lang, del_id),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("admin_del_ok:"))
+async def admin_del_ok(call: CallbackQuery):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    del_id = call.data.split(":", 1)[1]
+    removed = remove_bot_admin(del_id)
+
+    if removed:
+        await call.message.edit_text(T(lang, "admin_deleted", tid=del_id), parse_mode="HTML")
+    else:
+        await call.message.edit_text(T(lang, "admin_not_found"), parse_mode="HTML")
+
+    admins = get_bot_admins()
+    admin_list = "".join(T(lang, "admin_row", tid=a, name="") for a in admins) or T(lang, "no_admins") + "\n"
+    await call.message.answer(
+        T(lang, "admins_title", list=admin_list),
+        reply_markup=admins_manage_kb(lang, admins, tid),
         parse_mode="HTML",
     )
     await call.answer()

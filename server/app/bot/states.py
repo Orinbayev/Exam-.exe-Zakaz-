@@ -51,3 +51,8 @@ class StudentEdit(StatesGroup):
 
 class ClassEdit(StatesGroup):
     new_name = State()
+
+
+class AdminAdd(StatesGroup):
+    telegram_id = State()
+    confirm = State()

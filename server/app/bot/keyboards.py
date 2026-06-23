@@ -295,3 +295,41 @@ def admin_classes_kb(lang: str, cls_list: list) -> InlineKeyboardMarkup:
     builder.row(InlineKeyboardButton(text=T(lang, "cls_add_btn"), callback_data="cls_add_start"))
     builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_menu"))
     return builder.as_markup()
+
+
+def admins_manage_kb(lang: str, admins: list, current_tid: str) -> InlineKeyboardMarkup:
+    """Admin boshqaruv klaviaturasi — qo'shish + o'chirish."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(
+        text=T(lang, "admin_add_btn"), callback_data="admin_add_start"
+    ))
+    for tid in admins:
+        if tid != current_tid:
+            builder.row(InlineKeyboardButton(
+                text=f"🗑 {tid}", callback_data=f"admin_del_ask:{tid}"
+            ))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_menu"))
+    return builder.as_markup()
+
+
+def admin_add_confirm_kb(lang: str, tid: str) -> InlineKeyboardMarkup:
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        InlineKeyboardButton(text="✅ Ha", callback_data=f"admin_add_ok:{tid}"),
+        InlineKeyboardButton(text="❌ Yo'q", callback_data="admin_admins"),
+    )
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def admin_del_confirm_kb(lang: str, tid: str) -> InlineKeyboardMarkup:
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        InlineKeyboardButton(text="✅ Ha", callback_data=f"admin_del_ok:{tid}"),
+        InlineKeyboardButton(text="❌ Yo'q", callback_data="admin_admins"),
+    )
+    builder.adjust(2)
+    return builder.as_markup()
