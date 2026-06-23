@@ -71,17 +71,27 @@ async def startup():
     try:
         with engine.connect() as conn:
             migrations = [
-                "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT 0",
-                "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT 1",
+                "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
                 "ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30",
-                "ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT 1",
+                "ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
+                # bot_users jadvalini yaratish (agar mavjud bo'lmasa)
+                """CREATE TABLE IF NOT EXISTS bot_users (
+                    id SERIAL PRIMARY KEY,
+                    telegram_id BIGINT UNIQUE NOT NULL,
+                    lang VARCHAR(2) DEFAULT 'ru',
+                    role VARCHAR(20) DEFAULT 'parent',
+                    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )""",
             ]
             for sql in migrations:
                 try:
                     conn.execute(text(sql))
                     conn.commit()
-                except Exception:
-                    pass
+                    logger.info(f"Migration OK: {sql[:60]}")
+                except Exception as mig_err:
+                    logger.debug(f"Migration skip (already exists?): {mig_err}")
     except Exception as e:
         logger.warning(f"Migration xatosi (e'tiborsiz): {e}")
 
