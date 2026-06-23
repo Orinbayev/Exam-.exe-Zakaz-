@@ -84,6 +84,15 @@ async def startup():
     except Exception as e:
         logger.warning(f"Migration xatosi (e'tiborsiz): {e}")
 
+    # Telegram bot background ishga tushirish
+    try:
+        import asyncio
+        from .bot.runner import start_bot_background
+        asyncio.create_task(start_bot_background())
+        logger.info("Telegram bot vazifasi boshlandi")
+    except Exception as e:
+        logger.warning(f"Bot ishga tushishda xato (e'tiborsiz): {e}")
+
     try:
         db = SessionLocal()
         try:

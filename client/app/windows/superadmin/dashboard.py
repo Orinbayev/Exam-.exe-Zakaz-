@@ -565,6 +565,45 @@ class SettingsWidget(QWidget):
 
         root.addWidget(lang_frame)
 
+        # ── Card 4: Bot Adminlar ─────────────────────────────────────────────
+        bot_admin_frame, bot_admin_lay = _settings_card(
+            "🤖", t("set.bot_admin_card"), COLORS["primary_light"]
+        )
+
+        bot_admin_lbl = QLabel(t("set.bot_admin_lbl"))
+        bot_admin_lbl.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 12px;"
+            f" font-weight: 600; background: transparent;"
+        )
+        bot_admin_lay.addWidget(bot_admin_lbl)
+
+        self.bot_admin_input = QTextEdit()
+        self.bot_admin_input.setPlaceholderText(t("set.bot_admin_ph"))
+        self.bot_admin_input.setFixedHeight(90)
+        bot_admin_lay.addWidget(self.bot_admin_input)
+
+        bot_admin_hint = QLabel(t("set.bot_admin_hint"))
+        bot_admin_hint.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 11px; background: transparent;"
+        )
+        bot_admin_hint.setWordWrap(True)
+        bot_admin_lay.addWidget(bot_admin_hint)
+
+        bot_admin_save_row = QHBoxLayout()
+        bot_admin_save_btn = QPushButton(t("set.bot_admin_save"))
+        bot_admin_save_btn.setObjectName("secondary")
+        bot_admin_save_btn.clicked.connect(self._save_bot_admins)
+        self._bot_admin_status = QLabel("")
+        self._bot_admin_status.setStyleSheet(
+            f"color: {COLORS['success_light']}; font-size: 11px; background: transparent;"
+        )
+        bot_admin_save_row.addWidget(bot_admin_save_btn)
+        bot_admin_save_row.addWidget(self._bot_admin_status)
+        bot_admin_save_row.addStretch()
+        bot_admin_lay.addLayout(bot_admin_save_row)
+
+        root.addWidget(bot_admin_frame)
+
         # ── Save row ─────────────────────────────────────────────────────────
         save_row = QHBoxLayout()
         save_row.addStretch()
@@ -591,6 +630,15 @@ class SettingsWidget(QWidget):
                 self.bot_token_input.setText(token)
             notify = settings.get("telegram_notify_teacher", "true").lower() == "true"
             self.notify_check.setChecked(notify)
+            # Bot admin IDs
+            import json
+            bot_admin_raw = settings.get("bot_admin_ids", "")
+            if bot_admin_raw:
+                try:
+                    ids = json.loads(bot_admin_raw)
+                    self.bot_admin_input.setPlainText("\n".join(ids))
+                except Exception:
+                    self.bot_admin_input.setPlainText(bot_admin_raw)
         except APIError:
             pass
 
@@ -627,6 +675,22 @@ class SettingsWidget(QWidget):
             open_dashboard("superadmin")
 
         QTimer.singleShot(600, _reload)
+
+    def _save_bot_admins(self):
+        import json
+        raw = self.bot_admin_input.toPlainText().strip()
+        ids = [line.strip() for line in raw.splitlines() if line.strip()]
+        try:
+            api.save_setting("bot_admin_ids", json.dumps(ids))
+            self._bot_admin_status.setText(t("set.bot_admin_saved"))
+            self._bot_admin_status.setStyleSheet(
+                f"color: {COLORS['success_light']}; font-size: 11px; background: transparent;"
+            )
+        except APIError as e:
+            self._bot_admin_status.setText(str(e))
+            self._bot_admin_status.setStyleSheet(
+                f"color: {COLORS['danger_light']}; font-size: 11px; background: transparent;"
+            )
 
     def _test_telegram(self):
         try:

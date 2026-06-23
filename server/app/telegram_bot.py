@@ -41,6 +41,22 @@ def _grade_text(grade: str) -> str:
     }.get(grade, grade)
 
 
+def _grade_text_lang(grade: str, lang: str) -> str:
+    if lang == "uz":
+        return {
+            "5": "A'lo (5)",
+            "4": "Yaxshi (4)",
+            "3": "Qoniqarli (3)",
+            "2": "Qoniqarsiz (2)",
+        }.get(grade, grade)
+    return {
+        "5": "Отлично (5)",
+        "4": "Хорошо (4)",
+        "3": "Удовлетворительно (3)",
+        "2": "Неудовлетворительно (2)",
+    }.get(grade, grade)
+
+
 async def notify_result(session, db):
     """Exam natijasini o'qituvchi va ota-onaga yuborish."""
     token = await get_setting(db, "telegram_bot_token")
@@ -72,7 +88,7 @@ async def notify_result(session, db):
     # ── Ota-onaga xabar ───────────────────────────────────────────────────────
     # student_class nomidan DB dan Student topamiz
     try:
-        from .models import Student, StudentClass
+        from .models import Student, StudentClass, BotUser
         # Sinf nomiga mos sinf topish
         cls = db.query(StudentClass).filter(
             StudentClass.name == session.student_class
@@ -85,15 +101,34 @@ async def notify_result(session, db):
                 Student.last_name == session.student_lastname
             ).first()
             if student and student.parent_telegram_id:
-                parent_msg = (
-                    f"{grade_emoji} <b>Hurmatli ota-ona!</b>\n\n"
-                    f"Farzandingiz <b>{session.student_name} {session.student_lastname}</b>\n"
-                    f"«{test.name if test else '—'}» testini topshirdi.\n\n"
-                    f"📊 <b>Natija: {session.score_percent:.1f}%</b>\n"
-                    f"{grade_emoji} <b>Baho: {grade_text}</b>\n"
-                    f"✔️ To'g'ri javoblar: {session.correct_count}/{session.total_questions}\n\n"
-                    f"{'🎉 Tabriklaymiz! Farzandingiz testdan muvaffaqiyatli o\'tdi!' if session.is_passed else '⚠️ Farzandingiz testdan o\'ta olmadi. Ko\'proq o\'qish kerak.'}"
-                )
+                # Ota-ona tilini aniqlash
+                bot_user = db.query(BotUser).filter(
+                    BotUser.telegram_id == student.parent_telegram_id
+                ).first()
+                lang = bot_user.lang if bot_user else "ru"
+
+                p_grade_text = _grade_text_lang(session.grade or "", lang)
+
+                if lang == "uz":
+                    parent_msg = (
+                        f"{grade_emoji} <b>Hurmatli ota-ona!</b>\n\n"
+                        f"Farzandingiz <b>{session.student_name} {session.student_lastname}</b>\n"
+                        f"«{test.name if test else '—'}» testini topshirdi.\n\n"
+                        f"📊 <b>Natija: {session.score_percent:.1f}%</b>\n"
+                        f"{grade_emoji} <b>Baho: {p_grade_text}</b>\n"
+                        f"✔️ To'g'ri javoblar: {session.correct_count}/{session.total_questions}\n\n"
+                        f"{'🎉 Tabriklaymiz! Farzandingiz testdan muvaffaqiyatli o\'tdi!' if session.is_passed else '⚠️ Farzandingiz testdan o\'ta olmadi.'}"
+                    )
+                else:
+                    parent_msg = (
+                        f"{grade_emoji} <b>Уважаемый родитель!</b>\n\n"
+                        f"Ваш ребёнок <b>{session.student_name} {session.student_lastname}</b>\n"
+                        f"прошёл тест «{test.name if test else '—'}».\n\n"
+                        f"📊 <b>Результат: {session.score_percent:.1f}%</b>\n"
+                        f"{grade_emoji} <b>Оценка: {p_grade_text}</b>\n"
+                        f"✔️ Правильных ответов: {session.correct_count}/{session.total_questions}\n\n"
+                        f"{'🎉 Поздравляем! Ваш ребёнок успешно сдал тест!' if session.is_passed else '⚠️ Ваш ребёнок не сдал тест. Нужно больше учиться.'}"
+                    )
                 await send_message(token, student.parent_telegram_id, parent_msg)
     except Exception as e:
         print(f"Ota-onaga xabar yuborishda xato: {e}")

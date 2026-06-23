@@ -195,3 +195,15 @@ class ClassFan(Base):
     fan_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     test_id = Column(Integer, ForeignKey("tests.id"), nullable=True)
     assigned_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BotUser(Base):
+    """Telegram bot foydalanuvchilari (ota-onalar va bot adminlar)"""
+    __tablename__ = "bot_users"
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(String(50), unique=True, index=True, nullable=False)
+    lang = Column(String(5), default="ru")   # ru | uz
+    role = Column(String(20), default="parent")  # parent | bot_admin
+    registered_at = Column(DateTime, default=datetime.utcnow)
+    last_seen = Column(DateTime, default=datetime.utcnow)

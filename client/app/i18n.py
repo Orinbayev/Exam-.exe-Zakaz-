@@ -299,6 +299,12 @@ _T: dict[str, dict[str, str]] = {
         "set.tg_no_token":     "Bot token kiritilmagan!\nAvval tokenni kiriting va saqlang.",
         "set.tg_test_msg":     "Test xabari yuborilmoqda...\n\nO'qituvchi profilida Telegram Chat ID kiritilgan bo'lishi kerak.",
         "set.tg_test_title":   "Test xabari",
+        "set.bot_admin_card":  "Bot Adminlar",
+        "set.bot_admin_hint":  "Bot admin Telegram ID larini kiriting (har qatorda bitta). Bot adminlar barcha statistikani ko'rishi, savollar qo'shishi va ota-onalarga xabar yuborishi mumkin.",
+        "set.bot_admin_ph":    "Masalan:\n123456789\n987654321",
+        "set.bot_admin_save":  "Bot adminlarni saqlash",
+        "set.bot_admin_saved": "Bot adminlar saqlandi!",
+        "set.bot_admin_lbl":   "Telegram ID lar (har qatorda bittadan):",
 
         # ── Fan widget (qo'shimcha) ───────────────────────────────────────────
         "fan.title":           "📚  Fanlar va Savollar",
@@ -1099,6 +1105,12 @@ _T: dict[str, dict[str, str]] = {
         "set.tg_no_token":     "Bot token не введён!\nСначала введите и сохраните токен.",
         "set.tg_test_msg":     "Отправка тест-сообщения...\n\nВ профиле учителя должен быть указан Telegram Chat ID.",
         "set.tg_test_title":   "Тест-сообщение",
+        "set.bot_admin_card":  "Бот-администраторы",
+        "set.bot_admin_hint":  "Введите Telegram ID бот-администраторов (по одному на строке). Бот-администраторы могут просматривать статистику, добавлять вопросы и отправлять сообщения родителям.",
+        "set.bot_admin_ph":    "Например:\n123456789\n987654321",
+        "set.bot_admin_save":  "Сохранить бот-администраторов",
+        "set.bot_admin_saved": "Бот-администраторы сохранены!",
+        "set.bot_admin_lbl":   "Telegram ID (по одному на строке):",
     },
 }
 
