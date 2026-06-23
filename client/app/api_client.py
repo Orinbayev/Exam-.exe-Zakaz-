@@ -205,6 +205,13 @@ class APIClient:
 
     # ── Students / Classes ────────────────────────────────────────────────────
 
+    def get_all_students(self, class_id=None, fan_id=None, search=None) -> list:
+        params = {}
+        if class_id: params["class_id"] = class_id
+        if fan_id:   params["fan_id"]   = fan_id
+        if search:   params["search"]   = search
+        return self._request("GET", "/api/students/all", params=params)
+
     def get_classes(self) -> list:
         return self._request("GET", "/api/students/classes")
 

@@ -179,6 +179,7 @@ class TeacherDashboard(QMainWindow):
         nav_items = [
             ("📚", t("dash.nav_fan")),
             ("👥", t("dash.nav_students")),
+            ("👨‍🎓", t("dash.nav_all_students")),
             ("📊", t("dash.nav_results")),
             ("📈", t("dash.nav_stats")),
         ]
@@ -230,21 +231,23 @@ class TeacherDashboard(QMainWindow):
 
         self.stack = QStackedWidget()
 
-        from .fan_widget      import FanWidget
-        from .students_widget import StudentsWidget
-        from .results_widget  import ResultsWidget
-        from .stats_widget    import StatsWidget
+        from .fan_widget           import FanWidget
+        from .students_widget      import StudentsWidget
+        from .all_students_widget  import AllStudentsWidget
+        from .results_widget       import ResultsWidget
+        from .stats_widget         import StatsWidget
 
         self.stack.addWidget(FanWidget())            # 0 — Fan
-        self.stack.addWidget(StudentsWidget())       # 1 — O'quvchilar
-        self.stack.addWidget(ResultsWidget())        # 2 — Natijalar
-        self.stack.addWidget(StatsWidget())          # 3 — Statistika
+        self.stack.addWidget(StudentsWidget())       # 1 — Sinflar
+        self.stack.addWidget(AllStudentsWidget())    # 2 — Barcha o'quvchilar
+        self.stack.addWidget(ResultsWidget())        # 3 — Natijalar
+        self.stack.addWidget(StatsWidget())          # 4 — Statistika
 
         if self.is_superadmin:
             from ..superadmin.dashboard import UsersWidget, SettingsWidget, LogsWidget
-            self.stack.addWidget(UsersWidget())      # 4
-            self.stack.addWidget(SettingsWidget())   # 5
-            self.stack.addWidget(LogsWidget())       # 6
+            self.stack.addWidget(UsersWidget())      # 5
+            self.stack.addWidget(SettingsWidget())   # 6
+            self.stack.addWidget(LogsWidget())       # 7
 
         cl.addWidget(self.stack)
         root.addWidget(content, stretch=1)

@@ -277,6 +277,46 @@ def unassign_fan_from_class(
     return {"message": "Fan ajratildi"}
 
 
+# ── All students (barcha sinflardan) ─────────────────────────────────────────
+
+@router.get("/all")
+def all_students(
+    class_id: Optional[int] = None,
+    fan_id:   Optional[int] = None,
+    search:   Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    StudentClass, Student, ClassTest, ClassFan = get_models()
+    q = db.query(Student, StudentClass).join(StudentClass, Student.class_id == StudentClass.id)
+    if class_id:
+        q = q.filter(Student.class_id == class_id)
+    if fan_id:
+        linked_class_ids = [
+            r.class_id for r in db.query(ClassFan).filter(ClassFan.fan_id == fan_id).all()
+        ]
+        q = q.filter(Student.class_id.in_(linked_class_ids))
+    if search:
+        like = f"%{search.lower()}%"
+        from sqlalchemy import func
+        q = q.filter(
+            func.lower(Student.first_name).like(like) |
+            func.lower(Student.last_name).like(like)
+        )
+    rows = q.order_by(StudentClass.name, Student.last_name, Student.first_name).all()
+    return [
+        {
+            "id": s.id,
+            "first_name": s.first_name,
+            "last_name": s.last_name,
+            "parent_telegram_id": s.parent_telegram_id,
+            "class_id": s.class_id,
+            "class_name": cls.name,
+        }
+        for s, cls in rows
+    ]
+
+
 # ── Students ──────────────────────────────────────────────────────────────────
 
 @router.get("/classes/{class_id}/students")
