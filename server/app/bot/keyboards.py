@@ -191,10 +191,17 @@ def subjects_list_kb(lang: str, cats: list) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def fan_manage_kb(lang: str, fan_id: int, is_active: bool) -> InlineKeyboardMarkup:
-    """Fan boshqaruvi: faollashtirish/o'chirish."""
+def fan_manage_kb(lang: str, fan_id: int, is_active: bool, fan_name: str = "") -> InlineKeyboardMarkup:
+    """Fan boshqaruvi: savol qo'shish / faollashtirish / o'chirish."""
     from .texts import T
+    import urllib.parse
     builder = InlineKeyboardBuilder()
+    # Savol qo'shish — to'g'ridan-to'g'ri shu fanga
+    safe_name = urllib.parse.quote(fan_name[:30], safe="")
+    builder.row(InlineKeyboardButton(
+        text=T(lang, "fan_add_q_btn"),
+        callback_data=f"fan_addq:{fan_id}:{safe_name}"
+    ))
     if is_active:
         builder.row(InlineKeyboardButton(text=T(lang, "fan_deactivate_btn"), callback_data=f"fan_toggle:{fan_id}"))
     else:

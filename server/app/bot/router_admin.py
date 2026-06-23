@@ -206,7 +206,28 @@ async def fan_detail(call: CallbackQuery, state: FSMContext):
 
     status = T(lang, "active") if is_active else T(lang, "inactive")
     text = T(lang, "fan_detail", name=name, time=time_limit, q=qcount, status=status)
-    await call.message.edit_text(text, reply_markup=fan_manage_kb(lang, fan_id, is_active), parse_mode="HTML")
+    await call.message.edit_text(text, reply_markup=fan_manage_kb(lang, fan_id, is_active, name), parse_mode="HTML")
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("fan_addq:"))
+async def fan_addq_start(call: CallbackQuery, state: FSMContext):
+    """Fan sahifasidan to'g'ridan-to'g'ri savol qo'shish — fan tanlash bosqichini o'tkazib."""
+    import urllib.parse
+    parts = call.data.split(":", 2)
+    fan_id = int(parts[1])
+    fan_name = urllib.parse.unquote(parts[2]) if len(parts) > 2 else str(fan_id)
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+    await state.update_data(subject_id=fan_id, subject_name=fan_name)
+    await state.set_state(QuestionAdd.text)
+    await call.message.edit_text(
+        T(lang, "q_ask_text") + f"\n\n📚 <b>{fan_name}</b>",
+        parse_mode="HTML",
+    )
     await call.answer()
 
 
@@ -233,7 +254,7 @@ async def fan_toggle(call: CallbackQuery):
     key = "fan_toggled_on" if is_active else "fan_toggled_off"
     status = T(lang, "active") if is_active else T(lang, "inactive")
     text = T(lang, "fan_detail", name=name, time=time_limit, q=qcount, status=status)
-    await call.message.edit_text(text, reply_markup=fan_manage_kb(lang, fan_id, is_active), parse_mode="HTML")
+    await call.message.edit_text(text, reply_markup=fan_manage_kb(lang, fan_id, is_active, name), parse_mode="HTML")
     await call.answer(T(lang, key, name=name), show_alert=False)
 
 
