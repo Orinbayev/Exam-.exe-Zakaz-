@@ -34,3 +34,10 @@ class CategoryAdd(StatesGroup):
 class ClassAdd(StatesGroup):
     name = State()
     confirm = State()
+
+
+class StudentAdd(StatesGroup):
+    first_name = State()
+    last_name = State()
+    parent_tg = State()
+    confirm = State()

@@ -58,6 +58,26 @@ def back_students_kb(lang: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def class_detail_kb(lang: str, class_id: int) -> InlineKeyboardMarkup:
+    """Sinf tafsiloti — o'quvchi qo'shish + orqaga."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(
+        text=T(lang, "std_add_btn"),
+        callback_data=f"std_add:{class_id}"
+    ))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_students"))
+    return builder.as_markup()
+
+
+def skip_kb(lang: str) -> InlineKeyboardMarkup:
+    """Ota-ona TG ID ni o'tkazib yuborish uchun."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text=T(lang, "std_add_skip_btn"), callback_data="std_skip_parent"))
+    return builder.as_markup()
+
+
 def back_admin_kb(lang: str) -> InlineKeyboardMarkup:
     from .texts import T
     builder = InlineKeyboardBuilder()

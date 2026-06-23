@@ -90,6 +90,21 @@ TEXTS = {
         "cls_add_confirm": "✅ <b>Добавить класс?</b>\n\n🏫 Название: <b>{name}</b>",
         "cls_add_saved": "✅ Класс добавлен: <b>{name}</b>",
         "cls_add_cancel": "❌ Добавление класса отменено.",
+        # O'quvchi qo'shish
+        "std_add_btn": "➕ Добавить ученика",
+        "std_add_ask_fname": "👤 Введите <b>имя</b> ученика:",
+        "std_add_ask_lname": "👤 Введите <b>фамилию</b> ученика:",
+        "std_add_ask_parent": "📱 Введите Telegram ID родителя\n(или нажмите <b>Пропустить</b>):",
+        "std_add_skip_btn": "⏭ Пропустить",
+        "std_add_confirm": (
+            "✅ <b>Добавить ученика?</b>\n\n"
+            "👤 Имя: <b>{first}</b>\n"
+            "👤 Фамилия: <b>{last}</b>\n"
+            "🏫 Класс: <b>{cls}</b>\n"
+            "📱 Telegram ID родителя: <b>{parent}</b>"
+        ),
+        "std_add_saved": "✅ Ученик добавлен: <b>{last} {first}</b> → {cls}",
+        "std_add_cancel": "❌ Добавление ученика отменено.",
     },
     "uz": {
         "start_new": "👋 <b>Salomat bilimdonlari</b> ga xush kelibsiz!\n\nTilni tanlang:",
@@ -178,6 +193,21 @@ TEXTS = {
         "cls_add_confirm": "✅ <b>Sinf qo'shilsinmi?</b>\n\n🏫 Nom: <b>{name}</b>",
         "cls_add_saved": "✅ Sinf qo'shildi: <b>{name}</b>",
         "cls_add_cancel": "❌ Sinf qo'shish bekor qilindi.",
+        # O'quvchi qo'shish
+        "std_add_btn": "➕ O'quvchi qo'shish",
+        "std_add_ask_fname": "👤 O'quvchining <b>ismini</b> kiriting:",
+        "std_add_ask_lname": "👤 O'quvchining <b>familiyasini</b> kiriting:",
+        "std_add_ask_parent": "📱 Ota-ona Telegram ID sini kiriting\n(yoki <b>O'tkazib yuborish</b> bosing):",
+        "std_add_skip_btn": "⏭ O'tkazib yuborish",
+        "std_add_confirm": (
+            "✅ <b>O'quvchi qo'shilsinmi?</b>\n\n"
+            "👤 Ismi: <b>{first}</b>\n"
+            "👤 Familiyasi: <b>{last}</b>\n"
+            "🏫 Sinf: <b>{cls}</b>\n"
+            "📱 Ota-ona Telegram ID: <b>{parent}</b>"
+        ),
+        "std_add_saved": "✅ O'quvchi qo'shildi: <b>{last} {first}</b> → {cls}",
+        "std_add_cancel": "❌ O'quvchi qo'shish bekor qilindi.",
     }
 }
 

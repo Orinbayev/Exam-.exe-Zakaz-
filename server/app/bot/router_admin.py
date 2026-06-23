@@ -5,12 +5,13 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from .states import QuestionAdd, CategoryAdd, ClassAdd
+from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd
 from .texts import T
 from .keyboards import (
     admin_main_kb, back_admin_kb, subjects_kb,
     correct_kb, difficulty_kb, confirm_kb,
     admin_questions_kb, admin_subjects_kb, admin_classes_kb,
+    class_detail_kb, skip_kb,
 )
 from .helpers import get_or_create_bot_user, is_bot_admin
 from ..database import SessionLocal
@@ -242,9 +243,8 @@ async def show_class_students(call: CallbackQuery):
         for i, s in enumerate(student_rows, 1):
             text += T(lang, "student_row", i=i, last=s["last"], first=s["first"]) + "\n"
 
-    from .keyboards import back_students_kb
     await call.message.edit_text(
-        text, reply_markup=back_students_kb(lang), parse_mode="HTML"
+        text, reply_markup=class_detail_kb(lang, class_id), parse_mode="HTML"
     )
     await call.answer()
 
@@ -620,6 +620,134 @@ async def cls_cancel(call: CallbackQuery, state: FSMContext):
     await call.message.edit_text(
         T(lang, "cls_add_cancel"),
         reply_markup=admin_classes_kb(lang, cls_list),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+# ── O'quvchi qo'shish (StudentAdd FSM) ────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("std_add:"))
+async def std_add_start(call: CallbackQuery, state: FSMContext):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+    class_id = int(call.data.split(":")[1])
+    await state.update_data(class_id=class_id)
+    await state.set_state(StudentAdd.first_name)
+    await call.message.edit_text(T(lang, "std_add_ask_fname"), parse_mode="HTML")
+    await call.answer()
+
+
+@router.message(StudentAdd.first_name)
+async def std_got_fname(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(first_name=message.text.strip())
+    await state.set_state(StudentAdd.last_name)
+    await message.answer(T(lang, "std_add_ask_lname"), parse_mode="HTML")
+
+
+@router.message(StudentAdd.last_name)
+async def std_got_lname(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(last_name=message.text.strip())
+    await state.set_state(StudentAdd.parent_tg)
+    await message.answer(
+        T(lang, "std_add_ask_parent"),
+        reply_markup=skip_kb(lang),
+        parse_mode="HTML",
+    )
+
+
+@router.message(StudentAdd.parent_tg)
+async def std_got_parent(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    parent_tg = message.text.strip() if message.text else None
+    await _std_show_confirm(message, state, lang, parent_tg)
+
+
+@router.callback_query(StudentAdd.parent_tg, F.data == "std_skip_parent")
+async def std_skip_parent(call: CallbackQuery, state: FSMContext):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await _std_show_confirm(call.message, state, lang, None, edit=True)
+    await call.answer()
+
+
+async def _std_show_confirm(msg, state: FSMContext, lang: str, parent_tg, edit: bool = False):
+    """Tasdiqlash xabarini ko'rsatish (message yoki callback dan)."""
+    await state.update_data(parent_tg=parent_tg)
+    data = await state.get_data()
+    await state.set_state(StudentAdd.confirm)
+
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == data["class_id"]).first()
+        cls_name = cls.name if cls else "?"
+    finally:
+        db.close()
+
+    await state.update_data(cls_name=cls_name)
+    parent_display = parent_tg if parent_tg else "—"
+    text = T(
+        lang, "std_add_confirm",
+        first=data["first_name"],
+        last=data["last_name"],
+        cls=cls_name,
+        parent=parent_display,
+    )
+    kb = confirm_kb(lang, yes_cb="std_confirm_yes", no_cb="std_confirm_no")
+    if edit:
+        await msg.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    else:
+        await msg.answer(text, reply_markup=kb, parse_mode="HTML")
+
+
+@router.callback_query(StudentAdd.confirm, F.data == "std_confirm_yes")
+async def std_save(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+
+    db = SessionLocal()
+    try:
+        std = Student(
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            class_id=data["class_id"],
+            parent_telegram_id=data.get("parent_tg"),
+        )
+        db.add(std)
+        db.commit()
+        cls_name = data.get("cls_name", "?")
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "std_add_saved",
+          first=data["first_name"], last=data["last_name"], cls=cls_name),
+        reply_markup=class_detail_kb(lang, data["class_id"]),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data == "std_confirm_no")
+async def std_cancel(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await state.clear()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    class_id = data.get("class_id", 0)
+    await call.message.edit_text(
+        T(lang, "std_add_cancel"),
+        reply_markup=class_detail_kb(lang, class_id),
         parse_mode="HTML",
     )
     await call.answer()
