@@ -107,13 +107,24 @@ async def admin_top(call: CallbackQuery):
 
     db = SessionLocal()
     try:
-        top = (
+        rows = (
             db.query(ExamSession)
             .filter(ExamSession.is_completed == True)
             .order_by(ExamSession.score_percent.desc())
             .limit(10)
             .all()
         )
+        # session yopilishidan oldin lazy munosabatlarni yuklab olamiz
+        top = [
+            {
+                "last": s.student_lastname,
+                "first": s.student_name,
+                "cls": s.student_class,
+                "score": s.score_percent,
+                "test": s.test.name[:20] if s.test else "?",
+            }
+            for s in rows
+        ]
     finally:
         db.close()
 
@@ -122,16 +133,15 @@ async def admin_top(call: CallbackQuery):
         text += T(lang, "no_top")
     else:
         for i, s in enumerate(top, 1):
-            test_name = (s.test.name[:20] if s.test else "?")
             text += T(
                 lang,
                 "top_row",
                 rank=i,
-                last=s.student_lastname,
-                first=s.student_name,
-                cls=s.student_class,
-                score=s.score_percent,
-                test=test_name,
+                last=s["last"],
+                first=s["first"],
+                cls=s["cls"],
+                score=s["score"],
+                test=s["test"],
             )
 
     await call.message.edit_text(

@@ -47,7 +47,17 @@ def get_student_results(student_first: str, student_last: str, student_cls: str,
             .limit(limit)
             .all()
         )
-        return sessions
+        # session yopilishidan oldin lazy munosabatlarni yuklab olamiz
+        result = []
+        for ses in sessions:
+            result.append({
+                "test_name": ses.test.name if ses.test else "?",
+                "score": ses.score_percent,
+                "grade": ses.grade or "?",
+                "is_passed": ses.is_passed,
+                "end_time": ses.end_time,
+            })
+        return result
     finally:
         db.close()
 
@@ -86,27 +96,28 @@ async def show_child_results(call: CallbackQuery):
             await call.answer("Not found")
             return
         cls_name = s.student_class.name if s.student_class else "?"
-        sessions = get_student_results(s.first_name, s.last_name, cls_name)
-
-        text = T(lang, "child_results_title", name=s.first_name, last=s.last_name, cls=cls_name)
-        if not sessions:
-            text += T(lang, "no_results")
-        else:
-            for ses in sessions:
-                date = ses.end_time.strftime("%d.%m.%Y %H:%M") if ses.end_time else "?"
-                status = T(lang, "passed") if ses.is_passed else T(lang, "failed")
-                test_name = ses.test.name if ses.test else "?"
-                text += T(
-                    lang,
-                    "result_row",
-                    test=test_name,
-                    score=ses.score_percent,
-                    grade=ses.grade or "?",
-                    status=status,
-                    date=date,
-                )
+        first_name = s.first_name
+        last_name = s.last_name
     finally:
         db.close()
+
+    sessions = get_student_results(first_name, last_name, cls_name)
+    text = T(lang, "child_results_title", name=first_name, last=last_name, cls=cls_name)
+    if not sessions:
+        text += T(lang, "no_results")
+    else:
+        for ses in sessions:
+            date = ses["end_time"].strftime("%d.%m.%Y %H:%M") if ses["end_time"] else "?"
+            status = T(lang, "passed") if ses["is_passed"] else T(lang, "failed")
+            text += T(
+                lang,
+                "result_row",
+                test=ses["test_name"],
+                score=ses["score"],
+                grade=ses["grade"],
+                status=status,
+                date=date,
+            )
 
     await call.message.edit_text(
         text, reply_markup=back_children_kb(lang), parse_mode="HTML"
