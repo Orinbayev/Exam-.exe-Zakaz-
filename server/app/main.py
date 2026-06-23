@@ -171,6 +171,7 @@ async def startup():
             defaults = {
                 "telegram_notify_teacher": "true",
                 "system_name": "Smart Exam System",
+                "bot_admin_secret": "admin2024",
             }
             for key, value in defaults.items():
                 if not db.query(SystemSettings).filter(SystemSettings.key == key).first():
