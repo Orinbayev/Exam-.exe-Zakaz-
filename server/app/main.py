@@ -67,15 +67,20 @@ async def startup():
                 return
             time.sleep(wait)
 
-    # Migrations: add missing columns safely
+    # Migrations: PostgreSQL DO-block — kolumn mavjud bo'lsa ham xato bermaydi
     try:
         with engine.connect() as conn:
             migrations = [
-                "ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT FALSE",
-                "ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
-                "ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30",
-                "ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
-                # bot_users jadvalini yaratish (agar mavjud bo'lmasa)
+                # DO $$ ... $$ — kolumn mavjud bo'lsa EXCEPTION ni jimgina yutib yuboradi
+                """DO $$ BEGIN ALTER TABLE student_classes ADD COLUMN is_active BOOLEAN DEFAULT FALSE;
+                   EXCEPTION WHEN duplicate_column THEN NULL; END $$""",
+                """DO $$ BEGIN ALTER TABLE questions ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+                   EXCEPTION WHEN duplicate_column THEN NULL; END $$""",
+                """DO $$ BEGIN ALTER TABLE categories ADD COLUMN time_limit INTEGER DEFAULT 30;
+                   EXCEPTION WHEN duplicate_column THEN NULL; END $$""",
+                """DO $$ BEGIN ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+                   EXCEPTION WHEN duplicate_column THEN NULL; END $$""",
+                # bot_users jadvali
                 """CREATE TABLE IF NOT EXISTS bot_users (
                     id SERIAL PRIMARY KEY,
                     telegram_id BIGINT UNIQUE NOT NULL,
@@ -89,9 +94,9 @@ async def startup():
                 try:
                     conn.execute(text(sql))
                     conn.commit()
-                    logger.info(f"Migration OK: {sql[:60]}")
+                    logger.info(f"Migration OK: {sql[:80].strip()}")
                 except Exception as mig_err:
-                    logger.debug(f"Migration skip (already exists?): {mig_err}")
+                    logger.warning(f"Migration FAILED: {mig_err}")
     except Exception as e:
         logger.warning(f"Migration xatosi (e'tiborsiz): {e}")
 
