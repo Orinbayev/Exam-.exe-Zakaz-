@@ -47,3 +47,7 @@ class StudentEdit(StatesGroup):
     first_name = State()
     last_name = State()
     parent_tg = State()
+
+
+class ClassEdit(StatesGroup):
+    new_name = State()

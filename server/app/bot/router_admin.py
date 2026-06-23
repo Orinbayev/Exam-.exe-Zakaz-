@@ -5,7 +5,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd, StudentEdit
+from .states import QuestionAdd, CategoryAdd, ClassAdd, StudentAdd, StudentEdit, ClassEdit
 from .texts import T
 from .keyboards import (
     admin_main_kb, back_admin_kb, subjects_kb,
@@ -386,6 +386,58 @@ async def cls_toggle(call: CallbackQuery):
     text = T(lang, "cls_detail", name=cls_name, n=n, status=status)
     await call.message.edit_text(text, reply_markup=cls_manage_kb(lang, class_id, is_active), parse_mode="HTML")
     await call.answer(T(lang, key, name=cls_name), show_alert=False)
+
+
+@router.callback_query(F.data.startswith("cls_edit:"))
+async def cls_edit_start(call: CallbackQuery, state: FSMContext):
+    class_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        name = cls.name if cls else "?"
+    finally:
+        db.close()
+    await state.update_data(class_id=class_id)
+    await state.set_state(ClassEdit.new_name)
+    await call.message.edit_text(
+        T(lang, "cls_edit_ask", name=name),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.message(ClassEdit.new_name)
+async def cls_edit_save(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    new_name = message.text.strip() if message.text else ""
+    if not new_name:
+        await message.answer("❗ Nom bo'sh bo'lishi mumkin emas.")
+        return
+    data = await state.get_data()
+    class_id = data["class_id"]
+    await state.clear()
+    db = SessionLocal()
+    try:
+        cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+        if not cls:
+            await message.answer("Sinf topilmadi.")
+            return
+        cls.name = new_name
+        db.commit()
+        is_active = bool(cls.is_active)
+    finally:
+        db.close()
+    await message.answer(
+        T(lang, "cls_edited", name=new_name),
+        reply_markup=cls_manage_kb(lang, class_id, is_active),
+        parse_mode="HTML",
+    )
 
 
 @router.callback_query(F.data.startswith("cls_del_ask:"))

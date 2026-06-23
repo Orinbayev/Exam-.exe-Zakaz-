@@ -682,6 +682,11 @@ class StudentsWidget(QWidget):
         toggle_btn.clicked.connect(self._toggle_class_active)
         ll.addWidget(toggle_btn)
 
+        edit_cls_btn = QPushButton(t("sw.edit_cls_btn"))
+        edit_cls_btn.setObjectName("secondary")
+        edit_cls_btn.clicked.connect(self._edit_class)
+        ll.addWidget(edit_cls_btn)
+
         add_cls_btn = QPushButton(t("sw.add_cls_btn"))
         add_cls_btn.setStyleSheet(f"""
             QPushButton {{
@@ -1022,6 +1027,27 @@ class StudentsWidget(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             try:
                 api.create_class(dlg.get_name())
+                self.refresh()
+            except APIError as e:
+                QMessageBox.critical(self, t("common.error"), str(e))
+
+    def _edit_class(self):
+        item = self.class_list.currentItem()
+        if not item:
+            QMessageBox.information(self, t("sw.select_warn"), t("sw.select_hint"))
+            return
+        cls_id = item.data(Qt.ItemDataRole.UserRole)
+        cls_obj = next((c for c in self.classes if c["id"] == cls_id), None)
+        if not cls_obj:
+            return
+        dlg = ClassDialog(self)
+        dlg.inp.setText(cls_obj["name"])
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_name = dlg.get_name()
+            if new_name == cls_obj["name"]:
+                return
+            try:
+                api.update_class(cls_id, new_name)
                 self.refresh()
             except APIError as e:
                 QMessageBox.critical(self, t("common.error"), str(e))

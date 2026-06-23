@@ -121,6 +121,9 @@ TEXTS = {
         "del_cancel_btn": "❌ Отмена",
         # Sinf boshqaruvi
         "cls_detail": "🏫 <b>{name}</b>\n👥 Учеников: {n}\n🔘 Статус: {status}",
+        "cls_edit_btn": "✏️ Переименовать",
+        "cls_edit_ask": "✏️ <b>{name}</b> классини новое название:",
+        "cls_edited": "✅ Класс переименован: <b>{name}</b>",
         "cls_activate_btn": "✅ Активировать",
         "cls_deactivate_btn": "❌ Деактивировать",
         "cls_delete_btn": "🗑 Удалить класс",
@@ -260,6 +263,9 @@ TEXTS = {
         "del_cancel_btn": "❌ Bekor qilish",
         # Sinf boshqaruvi
         "cls_detail": "🏫 <b>{name}</b>\n👥 O'quvchilar: {n} ta\n🔘 Holat: {status}",
+        "cls_edit_btn": "✏️ Nomini tahrirlash",
+        "cls_edit_ask": "✏️ <b>{name}</b> sinfining yangi nomini yozing:",
+        "cls_edited": "✅ Sinf nomi o'zgartirildi: <b>{name}</b>",
         "cls_activate_btn": "✅ Faollashtirish",
         "cls_deactivate_btn": "❌ Nofaollashtirish",
         "cls_delete_btn": "🗑 Sinfni o'chirish",

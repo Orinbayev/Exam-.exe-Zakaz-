@@ -221,6 +221,9 @@ class APIClient:
     def create_class(self, name: str) -> dict:
         return self._request("POST", "/api/students/classes", json={"name": name})
 
+    def update_class(self, class_id: int, name: str) -> dict:
+        return self._request("PUT", f"/api/students/classes/{class_id}", json={"name": name})
+
     def delete_class(self, class_id: int):
         return self._request("DELETE", f"/api/students/classes/{class_id}")
 

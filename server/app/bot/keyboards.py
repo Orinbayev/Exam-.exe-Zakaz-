@@ -227,6 +227,7 @@ def cls_manage_kb(lang: str, class_id: int, is_active: bool) -> InlineKeyboardMa
     from .texts import T
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text=T(lang, "cls_view_students_btn"), callback_data=f"cls_students:{class_id}"))
+    builder.row(InlineKeyboardButton(text=T(lang, "cls_edit_btn"), callback_data=f"cls_edit:{class_id}"))
     if is_active:
         builder.row(InlineKeyboardButton(text=T(lang, "cls_deactivate_btn"), callback_data=f"cls_toggle:{class_id}"))
     else:

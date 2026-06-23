@@ -80,6 +80,22 @@ def create_class(
             "is_active": False, "student_count": 0, "test_ids": []}
 
 
+@router.put("/classes/{class_id}")
+def update_class(
+    class_id: int,
+    data: ClassCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher_or_admin)
+):
+    StudentClass, Student, ClassTest, ClassFan = get_models()
+    cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Sinf topilmadi")
+    cls.name = data.name.strip()
+    db.commit()
+    return {"id": cls.id, "name": cls.name, "is_active": bool(cls.is_active)}
+
+
 @router.patch("/classes/{class_id}/toggle-active")
 def toggle_class_active(
     class_id: int,
