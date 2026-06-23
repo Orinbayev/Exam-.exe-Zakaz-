@@ -106,6 +106,10 @@ def delete_class(
     cls = db.query(StudentClass).filter(StudentClass.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="Sinf topilmadi")
+    # FK bog'liq yozuvlarni avval o'chiramiz
+    db.query(ClassFan).filter(ClassFan.class_id == class_id).delete()
+    db.query(ClassTest).filter(ClassTest.class_id == class_id).delete()
+    db.query(Student).filter(Student.class_id == class_id).delete()
     db.delete(cls)
     db.commit()
     return {"message": "Sinf o'chirildi"}

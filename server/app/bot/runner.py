@@ -1,6 +1,7 @@
 """
 Bot ishga tushirish — background task sifatida.
 """
+import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
@@ -24,7 +25,13 @@ async def run_bot(token: str):
 
     logger.info("Bot ishga tushdi!")
     try:
-        await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
+        # drop_pending_updates=True — qayta ishga tushganda eski xabarlarni o'tkazib yuboradi
+        # va oldingi polling sessiyasini to'xtatadi (Conflict xatosini oldini oladi)
+        await dp.start_polling(
+            bot,
+            allowed_updates=["message", "callback_query"],
+            drop_pending_updates=True,
+        )
     except Exception as e:
         logger.error(f"Bot xatosi: {e}")
     finally:
