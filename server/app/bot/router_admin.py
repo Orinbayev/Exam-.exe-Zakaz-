@@ -213,15 +213,18 @@ async def fan_detail(call: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("fan_addq:"))
 async def fan_addq_start(call: CallbackQuery, state: FSMContext):
     """Fan sahifasidan to'g'ridan-to'g'ri savol qo'shish — fan tanlash bosqichini o'tkazib."""
-    import urllib.parse
-    parts = call.data.split(":", 2)
-    fan_id = int(parts[1])
-    fan_name = urllib.parse.unquote(parts[2]) if len(parts) > 2 else str(fan_id)
+    fan_id = int(call.data.split(":")[1])
     tid = str(call.from_user.id)
     lang = _lang(tid)
     if not _check_admin(tid):
         await call.answer(T(lang, "not_admin"), show_alert=True)
         return
+    db = SessionLocal()
+    try:
+        cat = db.query(Category).filter(Category.id == fan_id).first()
+        fan_name = cat.name if cat else str(fan_id)
+    finally:
+        db.close()
     await state.update_data(subject_id=fan_id, subject_name=fan_name)
     await state.set_state(QuestionAdd.text)
     await call.message.edit_text(
