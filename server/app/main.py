@@ -42,6 +42,27 @@ app.include_router(settings_router.router)
 app.include_router(students_router.router)
 
 
+# ── Telegram webhook endpoint ─────────────────────────────────────────────────
+
+@app.post("/bot/webhook")
+async def telegram_webhook(request: Request):
+    """Telegram Updates ni qabul qiladi — polling o'rniga."""
+    from aiogram.types import Update
+    from .bot.setup import get_bot, get_dp
+    bot = get_bot()
+    dp  = get_dp()
+    if not bot or not dp:
+        return JSONResponse({"ok": False, "error": "bot not ready"}, status_code=503)
+    try:
+        data   = await request.json()
+        update = Update.model_validate(data, context={"bot": bot})
+        await dp.feed_update(bot, update)
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Webhook update xatosi: {e}")
+        return JSONResponse({"ok": False}, status_code=200)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Xato: {exc}", exc_info=True)
@@ -100,14 +121,36 @@ async def startup():
     except Exception as e:
         logger.warning(f"Migration xatosi (e'tiborsiz): {e}")
 
-    # Telegram bot background ishga tushirish
+    # Telegram bot — webhook orqali (polling emas)
     try:
-        import asyncio
-        from .bot.runner import start_bot_background
-        asyncio.create_task(start_bot_background())
-        logger.info("Telegram bot vazifasi boshlandi")
+        import os
+        db_s = SessionLocal()
+        try:
+            tok_row = db_s.query(SystemSettings).filter(
+                SystemSettings.key == "telegram_bot_token"
+            ).first()
+            token = tok_row.value if tok_row else None
+        finally:
+            db_s.close()
+
+        if token:
+            server_url = os.environ.get(
+                "SERVER_URL", "https://exam-server-vq86.onrender.com"
+            )
+            webhook_url = f"{server_url}/bot/webhook"
+            from .bot.setup import init_bot_dp, get_bot
+            init_bot_dp(token)
+            bot_tmp = get_bot()
+            await bot_tmp.set_webhook(
+                webhook_url,
+                drop_pending_updates=True,
+                allowed_updates=["message", "callback_query"],
+            )
+            logger.info(f"Bot webhook o'rnatildi: {webhook_url}")
+        else:
+            logger.warning("Bot token yo'q — webhook o'rnatilmadi")
     except Exception as e:
-        logger.warning(f"Bot ishga tushishda xato (e'tiborsiz): {e}")
+        logger.warning(f"Bot webhook xatosi (e'tiborsiz): {e}")
 
     try:
         db = SessionLocal()
