@@ -76,6 +76,20 @@ TEXTS = {
         "error": "❌ Произошла ошибка. Попробуйте снова.",
         "refresh_btn": "🔄 Обновить",
         "close_btn": "✖ Закрыть",
+        # Fan yaratish
+        "fan_add_btn": "➕ Добавить предмет",
+        "fan_add_ask_name": "📚 Введите название предмета:",
+        "fan_add_ask_time": "⏱ Введите лимит времени в минутах (например: <b>30</b>):",
+        "fan_add_time_invalid": "❌ Введите только число (например: 30):",
+        "fan_add_confirm": "✅ <b>Добавить предмет?</b>\n\n📚 Название: <b>{name}</b>\n⏱ Время: <b>{time} мин</b>",
+        "fan_add_saved": "✅ Предмет добавлен: <b>{name}</b>",
+        "fan_add_cancel": "❌ Добавление предмета отменено.",
+        # Sinf qo'shish
+        "cls_add_btn": "➕ Добавить класс",
+        "cls_add_ask_name": "🏫 Введите название класса (например: <b>9-A</b>):",
+        "cls_add_confirm": "✅ <b>Добавить класс?</b>\n\n🏫 Название: <b>{name}</b>",
+        "cls_add_saved": "✅ Класс добавлен: <b>{name}</b>",
+        "cls_add_cancel": "❌ Добавление класса отменено.",
     },
     "uz": {
         "start_new": "👋 <b>Salomat bilimdonlari</b> ga xush kelibsiz!\n\nTilni tanlang:",
@@ -150,6 +164,20 @@ TEXTS = {
         "error": "❌ Xato yuz berdi. Qayta urinib ko'ring.",
         "refresh_btn": "🔄 Yangilash",
         "close_btn": "✖ Yopish",
+        # Fan yaratish
+        "fan_add_btn": "➕ Fan qo'shish",
+        "fan_add_ask_name": "📚 Fan nomini kiriting:",
+        "fan_add_ask_time": "⏱ Vaqt chegarasini daqiqada kiriting (masalan: <b>30</b>):",
+        "fan_add_time_invalid": "❌ Faqat son kiriting (masalan: 30):",
+        "fan_add_confirm": "✅ <b>Fan qo'shilsinmi?</b>\n\n📚 Nom: <b>{name}</b>\n⏱ Vaqt: <b>{time} daqiqa</b>",
+        "fan_add_saved": "✅ Fan qo'shildi: <b>{name}</b>",
+        "fan_add_cancel": "❌ Fan qo'shish bekor qilindi.",
+        # Sinf qo'shish
+        "cls_add_btn": "➕ Sinf qo'shish",
+        "cls_add_ask_name": "🏫 Sinf nomini kiriting (masalan: <b>9-A</b>):",
+        "cls_add_confirm": "✅ <b>Sinf qo'shilsinmi?</b>\n\n🏫 Nom: <b>{name}</b>",
+        "cls_add_saved": "✅ Sinf qo'shildi: <b>{name}</b>",
+        "cls_add_cancel": "❌ Sinf qo'shish bekor qilindi.",
     }
 }
 

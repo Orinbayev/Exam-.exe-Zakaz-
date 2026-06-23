@@ -23,3 +23,14 @@ class QuestionAdd(StatesGroup):
 class BroadcastState(StatesGroup):
     text = State()
     confirm = State()
+
+
+class CategoryAdd(StatesGroup):
+    name = State()
+    time_limit = State()
+    confirm = State()
+
+
+class ClassAdd(StatesGroup):
+    name = State()
+    confirm = State()

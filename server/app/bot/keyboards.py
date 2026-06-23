@@ -51,6 +51,13 @@ def admin_main_kb(lang: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def back_students_kb(lang: str) -> InlineKeyboardMarkup:
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_students"))
+    return builder.as_markup()
+
+
 def back_admin_kb(lang: str) -> InlineKeyboardMarkup:
     from .texts import T
     builder = InlineKeyboardBuilder()
@@ -136,5 +143,28 @@ def admin_questions_kb(lang: str, cats: list) -> InlineKeyboardMarkup:
     from .texts import T
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text=T(lang, "add_question_btn"), callback_data="q_add_start"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_menu"))
+    return builder.as_markup()
+
+
+def admin_subjects_kb(lang: str) -> InlineKeyboardMarkup:
+    """Fanlar ro'yxati uchun — qo'shish tugmasi bilan."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text=T(lang, "fan_add_btn"), callback_data="fan_add_start"))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_menu"))
+    return builder.as_markup()
+
+
+def admin_classes_kb(lang: str, cls_list: list) -> InlineKeyboardMarkup:
+    """Sinflar ro'yxati uchun — qo'shish tugmasi bilan."""
+    from .texts import T
+    builder = InlineKeyboardBuilder()
+    for c in cls_list:
+        builder.row(InlineKeyboardButton(
+            text=f"🏫 {c['name']} ({c['n']})",
+            callback_data=f"cls:{c['id']}"
+        ))
+    builder.row(InlineKeyboardButton(text=T(lang, "cls_add_btn"), callback_data="cls_add_start"))
     builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_menu"))
     return builder.as_markup()

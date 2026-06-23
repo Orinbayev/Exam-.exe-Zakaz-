@@ -5,12 +5,12 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from .states import QuestionAdd
+from .states import QuestionAdd, CategoryAdd, ClassAdd
 from .texts import T
 from .keyboards import (
     admin_main_kb, back_admin_kb, subjects_kb,
-    correct_kb, difficulty_kb, confirm_kb, classes_kb,
-    admin_questions_kb,
+    correct_kb, difficulty_kb, confirm_kb,
+    admin_questions_kb, admin_subjects_kb, admin_classes_kb,
 )
 from .helpers import get_or_create_bot_user, is_bot_admin
 from ..database import SessionLocal
@@ -182,7 +182,7 @@ async def admin_subjects(call: CallbackQuery):
             text += T(lang, "subject_row", name=c["name"], q=c["q"])
 
     await call.message.edit_text(
-        text, reply_markup=back_admin_kb(lang), parse_mode="HTML"
+        text, reply_markup=admin_subjects_kb(lang), parse_mode="HTML"
     )
     await call.answer()
 
@@ -209,7 +209,7 @@ async def admin_students(call: CallbackQuery):
 
     await call.message.edit_text(
         T(lang, "students_classes"),
-        reply_markup=classes_kb(lang, cls_list),
+        reply_markup=admin_classes_kb(lang, cls_list),
         parse_mode="HTML",
     )
     await call.answer()
@@ -242,8 +242,9 @@ async def show_class_students(call: CallbackQuery):
         for i, s in enumerate(student_rows, 1):
             text += T(lang, "student_row", i=i, last=s["last"], first=s["first"]) + "\n"
 
+    from .keyboards import back_students_kb
     await call.message.edit_text(
-        text, reply_markup=back_admin_kb(lang), parse_mode="HTML"
+        text, reply_markup=back_students_kb(lang), parse_mode="HTML"
     )
     await call.answer()
 
@@ -449,6 +450,177 @@ async def q_cancel(call: CallbackQuery, state: FSMContext):
     lang = _lang(tid)
     await call.message.edit_text(
         T(lang, "q_cancel"), reply_markup=back_admin_kb(lang), parse_mode="HTML"
+    )
+    await call.answer()
+
+
+# ── Fan yaratish (CategoryAdd FSM) ────────────────────────────────────────────
+
+@router.callback_query(F.data == "fan_add_start")
+async def fan_add_start(call: CallbackQuery, state: FSMContext):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+    await state.set_state(CategoryAdd.name)
+    await call.message.edit_text(T(lang, "fan_add_ask_name"), parse_mode="HTML")
+    await call.answer()
+
+
+@router.message(CategoryAdd.name)
+async def fan_got_name(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(name=message.text.strip())
+    await state.set_state(CategoryAdd.time_limit)
+    await message.answer(T(lang, "fan_add_ask_time"), parse_mode="HTML")
+
+
+@router.message(CategoryAdd.time_limit)
+async def fan_got_time(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    text = message.text.strip()
+    if not text.isdigit() or int(text) <= 0:
+        await message.answer(T(lang, "fan_add_time_invalid"), parse_mode="HTML")
+        return  # holatni o'zgartirmaymiz, qayta so'raymiz
+    await state.update_data(time_limit=int(text))
+    data = await state.get_data()
+    await state.set_state(CategoryAdd.confirm)
+    await message.answer(
+        T(lang, "fan_add_confirm", name=data["name"], time=data["time_limit"]),
+        reply_markup=confirm_kb(lang, yes_cb="fan_confirm_yes", no_cb="fan_confirm_no"),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(CategoryAdd.confirm, F.data == "fan_confirm_yes")
+async def fan_save(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+
+    db = SessionLocal()
+    try:
+        teacher = db.query(User).filter(User.role == "superadmin").first()
+        if not teacher:
+            teacher = db.query(User).first()
+        cat = Category(
+            name=data["name"],
+            teacher_id=teacher.id,
+            time_limit=data["time_limit"],
+        )
+        db.add(cat)
+        db.commit()
+        saved_name = data["name"]
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "fan_add_saved", name=saved_name),
+        reply_markup=admin_subjects_kb(lang),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data == "fan_confirm_no")
+async def fan_cancel(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await call.message.edit_text(
+        T(lang, "fan_add_cancel"),
+        reply_markup=admin_subjects_kb(lang),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+# ── Sinf qo'shish (ClassAdd FSM) ──────────────────────────────────────────────
+
+@router.callback_query(F.data == "cls_add_start")
+async def cls_add_start(call: CallbackQuery, state: FSMContext):
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+    await state.set_state(ClassAdd.name)
+    await call.message.edit_text(T(lang, "cls_add_ask_name"), parse_mode="HTML")
+    await call.answer()
+
+
+@router.message(ClassAdd.name)
+async def cls_got_name(message: Message, state: FSMContext):
+    tid = str(message.from_user.id)
+    lang = _lang(tid)
+    await state.update_data(name=message.text.strip())
+    data = await state.get_data()
+    await state.set_state(ClassAdd.confirm)
+    await message.answer(
+        T(lang, "cls_add_confirm", name=data["name"]),
+        reply_markup=confirm_kb(lang, yes_cb="cls_confirm_yes", no_cb="cls_confirm_no"),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(ClassAdd.confirm, F.data == "cls_confirm_yes")
+async def cls_save(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    await state.clear()
+
+    db = SessionLocal()
+    try:
+        teacher = db.query(User).filter(User.role == "superadmin").first()
+        if not teacher:
+            teacher = db.query(User).first()
+        cls = StudentClass(
+            name=data["name"],
+            teacher_id=teacher.id,
+            is_active=False,
+        )
+        db.add(cls)
+        db.commit()
+        saved_name = data["name"]
+        cls_list = []
+        for c in db.query(StudentClass).all():
+            n = db.query(Student).filter(Student.class_id == c.id).count()
+            cls_list.append({"id": c.id, "name": c.name, "n": n})
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "cls_add_saved", name=saved_name),
+        reply_markup=admin_classes_kb(lang, cls_list),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data == "cls_confirm_no")
+async def cls_cancel(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+
+    db = SessionLocal()
+    try:
+        cls_list = []
+        for c in db.query(StudentClass).all():
+            n = db.query(Student).filter(Student.class_id == c.id).count()
+            cls_list.append({"id": c.id, "name": c.name, "n": n})
+    finally:
+        db.close()
+
+    await call.message.edit_text(
+        T(lang, "cls_add_cancel"),
+        reply_markup=admin_classes_kb(lang, cls_list),
+        parse_mode="HTML",
     )
     await call.answer()
 
