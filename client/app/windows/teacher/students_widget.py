@@ -274,9 +274,7 @@ class StudentDialog(QDialog):
         info_ico.setFont(QFont("Segoe UI Emoji", 13))
         info_ico.setStyleSheet("background: transparent;")
         info_ico.setFixedWidth(22)
-        info_txt = QLabel(
-            "Chat ID ni topish: Telegramda  <b>@userinfobot</b>  ga  /start  yuboring"
-        )
+        info_txt = QLabel(t("sw.tg_info"))
         info_txt.setFont(QFont("Segoe UI", 10))
         info_txt.setStyleSheet(f"color: {COLORS['primary_light']}; background: transparent;")
         info_txt.setWordWrap(True)
@@ -380,9 +378,9 @@ class ExcelFormatDialog(QDialog):
         clay.addWidget(hdr)
 
         cols_info = [
-            ("A ustun", "Ism",                       "Majburiy",   "#66BB6A"),
-            ("B ustun", "Familiya",                   "Majburiy",   "#66BB6A"),
-            ("C ustun", "Ota-ona Telegram Chat ID",   "Ixtiyoriy",  "#FFA726"),
+            (t("sw.dlg_col_a"), t("sw.dlg_col_fname"),  t("sw.dlg_req"),  "#66BB6A"),
+            (t("sw.dlg_col_b"), t("sw.dlg_col_lname"),  t("sw.dlg_req"),  "#66BB6A"),
+            (t("sw.dlg_col_c"), t("sw.dlg_col_tg"),     t("sw.dlg_opt"),  "#FFA726"),
         ]
         for col, desc, req, color in cols_info:
             row_w = QWidget()
@@ -419,7 +417,9 @@ class ExcelFormatDialog(QDialog):
         lay.addWidget(ex_lbl)
 
         tbl = QTableWidget(4, 3)
-        tbl.setHorizontalHeaderLabels(["A — Ism", "B — Familiya", "C — Telegram ID"])
+        tbl.setHorizontalHeaderLabels([
+            t("sw.dlg_tbl_a"), t("sw.dlg_tbl_b"), t("sw.dlg_tbl_c")
+        ])
         tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         tbl.verticalHeader().setVisible(False)
         tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -501,7 +501,7 @@ def _generate_student_template(path: str):
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "O'quvchilar"
+    ws.title = t("sw.xl_sheet")
 
     BLU = PatternFill("solid", fgColor="1565C0")
     YEL = PatternFill("solid", fgColor="FFF9C4")
@@ -509,7 +509,7 @@ def _generate_student_template(path: str):
     BRD = Border(*(Side(style="thin"),)*4)
     CTR = Alignment(horizontal="center", vertical="center")
 
-    headers = [("Ism (A)", 20), ("Familiya (B)", 22), ("Ota-ona Telegram ID (C)", 28)]
+    headers = [(t("sw.xl_hdr_a"), 20), (t("sw.xl_hdr_b"), 22), (t("sw.xl_hdr_c"), 28)]
     for c, (h, w) in enumerate(headers, 1):
         cell = ws.cell(1, c, h)
         cell.font, cell.fill, cell.alignment, cell.border = HDR, BLU, CTR, BRD
@@ -530,11 +530,7 @@ def _generate_student_template(path: str):
             cell.alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[r].height = 22
 
-    ws.cell(len(samples)+3, 1).value = (
-        "ESLATMA: 1-qatorni o'zgartirmang (sarlavha). "
-        "2-qatordan boshlab o'z o'quvchilaringizni kiriting. "
-        "Telegram ID ixtiyoriy — bo'sh qoldirsangiz ham bo'ladi."
-    )
+    ws.cell(len(samples)+3, 1).value = t("sw.xl_note")
     ws.cell(len(samples)+3, 1).font = Font(italic=True, color="888888", size=9)
     ws.freeze_panes = "A2"
     wb.save(path)
