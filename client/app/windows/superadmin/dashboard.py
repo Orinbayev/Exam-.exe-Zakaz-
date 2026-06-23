@@ -724,7 +724,7 @@ class SettingsWidget(QWidget):
             inp.setFixedHeight(36)
             inp.setStyleSheet(f"""
                 QLineEdit {{
-                    background: {COLORS['input_bg']}; border: 1px solid {COLORS['border']};
+                    background: {COLORS['bg_medium']}; border: 1px solid {COLORS['border']};
                     border-radius: 8px; padding: 0 10px; color: {COLORS['text_primary']};
                 }}
                 QLineEdit:focus {{ border-color: {COLORS['primary']}; }}
