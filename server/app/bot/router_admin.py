@@ -81,6 +81,7 @@ async def admin_stats(call: CallbackQuery):
         students_n = db.query(Student).count()
         classes_n = db.query(StudentClass).count()
         questions_n = db.query(Question).filter(Question.is_active == True).count()
+        parents_n = db.query(BotUser).filter(BotUser.role == "parent").count()
     finally:
         db.close()
 
@@ -93,6 +94,7 @@ async def admin_stats(call: CallbackQuery):
         + T(lang, "stats_students", n=students_n)
         + T(lang, "stats_classes", n=classes_n)
         + T(lang, "stats_questions", n=questions_n)
+        + T(lang, "stats_parents", n=parents_n)
     )
     await call.message.edit_text(
         text, reply_markup=back_admin_kb(lang), parse_mode="HTML"
