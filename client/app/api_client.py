@@ -286,9 +286,14 @@ class APIClient:
     def save_setting(self, key: str, value: str):
         return self._request("POST", "/api/settings/", json={"key": key, "value": value})
 
-    def export_excel(self) -> bytes:
+    def export_excel(self, test_id: int = None, class_name: str = None) -> bytes:
         url = f"{self.base_url}/api/settings/export/excel"
-        resp = requests.get(url, headers=self.headers, timeout=30)
+        params = {}
+        if test_id:
+            params["test_id"] = test_id
+        if class_name:
+            params["class_name"] = class_name
+        resp = requests.get(url, headers=self.headers, params=params, timeout=30)
         if not resp.ok:
             raise APIError("Excel eksport xatosi")
         return resp.content

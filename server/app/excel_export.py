@@ -103,3 +103,62 @@ def generate_results_excel(sessions: list) -> bytes:
     output = io.BytesIO()
     wb.save(output)
     return output.getvalue()
+
+
+def generate_results_excel_dicts(sessions: list) -> bytes:
+    """Dict ro'yxatidan Excel generatsiya qiladi (bot uchun — session yopilgandan keyin)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Natijalar"
+
+    ws.merge_cells("A1:K1")
+    title_cell = ws["A1"]
+    title_cell.value = f"Smart Exam System - Natijalar ({datetime.now().strftime('%d.%m.%Y')})"
+    title_cell.font = Font(bold=True, size=14, color="1565C0")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    for col_idx, (header, width) in enumerate(COLUMNS, start=1):
+        cell = ws.cell(row=2, column=col_idx, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = THIN_BORDER
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    ws.row_dimensions[2].height = 25
+
+    for row_idx, s in enumerate(sessions, start=3):
+        date_str = s["end_time"].strftime("%d.%m.%Y %H:%M") if s["end_time"] else "-"
+        row_data = [
+            date_str,
+            s["student_name"],
+            s["student_lastname"],
+            s["student_class"],
+            s["test_name"],
+            s["total_questions"],
+            s["correct_count"],
+            s["wrong_count"],
+            round(s["score_percent"], 1),
+            s["grade"] or "-",
+            "O'tdi" if s["is_passed"] else "Yiqildi",
+        ]
+        fill = PASS_FILL if s["is_passed"] else FAIL_FILL
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.fill = fill
+            cell.border = THIN_BORDER
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    if sessions:
+        sum_row = len(sessions) + 3
+        ws.merge_cells(f"A{sum_row}:D{sum_row}")
+        ws.cell(row=sum_row, column=1).value = "JAMI / O'RTACHA"
+        ws.cell(row=sum_row, column=1).font = Font(bold=True)
+        scores = [s["score_percent"] for s in sessions]
+        ws.cell(row=sum_row, column=9).value = round(sum(scores) / len(scores), 1)
+        ws.cell(row=sum_row, column=9).font = Font(bold=True)
+
+    ws.freeze_panes = "A3"
+    output = io.BytesIO()
+    wb.save(output)
+    return output.getvalue()

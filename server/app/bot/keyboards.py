@@ -47,6 +47,7 @@ def admin_main_kb(lang: str) -> InlineKeyboardMarkup:
     )
     builder.row(InlineKeyboardButton(text=T(lang, "broadcast_btn"), callback_data="admin_broadcast"))
     builder.row(InlineKeyboardButton(text=T(lang, "admins_btn"), callback_data="admin_admins"))
+    builder.row(InlineKeyboardButton(text=T(lang, "export_btn"), callback_data="admin_export"))
     builder.row(InlineKeyboardButton(text=T(lang, "lang_btn"), callback_data="parent_settings"))
     return builder.as_markup()
 

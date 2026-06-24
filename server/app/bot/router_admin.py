@@ -1346,7 +1346,6 @@ async def admin_add_ok(call: CallbackQuery, state: FSMContext):
         T(lang, "admin_added", tid=new_id),
         parse_mode="HTML",
     )
-    # Yangi ro'yxatni ko'rsat
     admins = get_bot_admins()
     admin_list = "".join(T(lang, "admin_row", tid=a, name="") for a in admins) or T(lang, "no_admins") + "\n"
     await call.message.answer(
@@ -1404,3 +1403,102 @@ async def admin_del_ok(call: CallbackQuery):
         parse_mode="HTML",
     )
     await call.answer()
+
+
+# ── Excel eksport ─────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data == "admin_export")
+async def admin_export_menu(call: CallbackQuery):
+    """Test ro'yxatini ko'rsatadi — qaysi test natijalarini yuklab olishni tanlaydi."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from aiogram.types import InlineKeyboardButton
+
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    db = SessionLocal()
+    try:
+        from ..models import Test
+        tests = db.query(Test).order_by(Test.id.desc()).limit(20).all()
+        test_list = [{"id": t.id, "name": t.name} for t in tests]
+        total = db.query(ExamSession).filter(ExamSession.is_completed == True).count()
+    finally:
+        db.close()
+
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(
+        text=T(lang, "export_all_btn", n=total),
+        callback_data="export_dl:0"
+    ))
+    for t in test_list:
+        builder.row(InlineKeyboardButton(
+            text=f"📄 {t['name'][:40]}",
+            callback_data=f"export_dl:{t['id']}"
+        ))
+    builder.row(InlineKeyboardButton(text=T(lang, "back"), callback_data="admin_stats"))
+
+    await call.message.edit_text(
+        T(lang, "export_choose"),
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML",
+    )
+    await call.answer()
+
+
+@router.callback_query(F.data.startswith("export_dl:"))
+async def admin_export_download(call: CallbackQuery):
+    """Excel faylni generatsiya qilib yuboradi."""
+    from aiogram.types import BufferedInputFile
+    from datetime import datetime
+
+    test_id = int(call.data.split(":")[1])
+    tid = str(call.from_user.id)
+    lang = _lang(tid)
+    if not _check_admin(tid):
+        await call.answer(T(lang, "not_admin"), show_alert=True)
+        return
+
+    await call.answer(T(lang, "export_wait"), show_alert=False)
+
+    db = SessionLocal()
+    try:
+        q = db.query(ExamSession).filter(ExamSession.is_completed == True)
+        if test_id:
+            q = q.filter(ExamSession.test_id == test_id)
+        sessions = q.order_by(ExamSession.end_time.desc()).all()
+
+        sess_data = []
+        for s in sessions:
+            sess_data.append({
+                "end_time":         s.end_time,
+                "student_name":     s.student_name,
+                "student_lastname": s.student_lastname,
+                "student_class":    s.student_class,
+                "test_name":        s.test.name if s.test else "-",
+                "total_questions":  s.total_questions,
+                "correct_count":    s.correct_count,
+                "wrong_count":      s.wrong_count,
+                "score_percent":    s.score_percent,
+                "grade":            s.grade,
+                "is_passed":        s.is_passed,
+            })
+    finally:
+        db.close()
+
+    if not sess_data:
+        await call.message.answer(T(lang, "export_empty"))
+        return
+
+    from ..excel_export import generate_results_excel_dicts
+    excel_bytes = generate_results_excel_dicts(sess_data)
+
+    date_str = datetime.now().strftime("%Y%m%d")
+    fname = f"natijalar_test{test_id}_{date_str}.xlsx" if test_id else f"natijalar_barcha_{date_str}.xlsx"
+
+    await call.message.answer_document(
+        document=BufferedInputFile(excel_bytes, filename=fname),
+        caption=T(lang, "export_done", n=len(sess_data)),
+    )

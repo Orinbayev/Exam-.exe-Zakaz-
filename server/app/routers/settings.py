@@ -91,22 +91,35 @@ def change_password(
 
 @router.get("/export/excel")
 def export_excel(
+    test_id: int = None,
+    class_name: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_teacher_or_admin)
 ):
-    """Natijalarni Excel faylga eksport qilish."""
+    """Natijalarni Excel faylga eksport qilish (test_id va class_name bo'yicha filter)."""
     from ..excel_export import generate_results_excel
 
     q = db.query(ExamSession).filter(ExamSession.is_completed == True)
     if current_user.role != "superadmin":
-        test_ids = [t.id for t in current_user.tests]
-        q = q.filter(ExamSession.test_id.in_(test_ids))
+        teacher_test_ids = [t.id for t in current_user.tests]
+        q = q.filter(ExamSession.test_id.in_(teacher_test_ids))
+    if test_id:
+        q = q.filter(ExamSession.test_id == test_id)
+    if class_name:
+        q = q.filter(ExamSession.student_class == class_name)
 
     sessions = q.order_by(ExamSession.end_time.desc()).all()
     excel_bytes = generate_results_excel(sessions)
 
+    fname = "natijalar"
+    if test_id:
+        fname += f"_test{test_id}"
+    if class_name:
+        fname += f"_{class_name.replace(' ', '_')}"
+    fname += ".xlsx"
+
     return StreamingResponse(
         io.BytesIO(excel_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=natijalar.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={fname}"}
     )

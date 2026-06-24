@@ -184,17 +184,64 @@ class ResultsWidget(QWidget):
                 self.table.setItem(row, col, item)
 
     def _export_excel(self):
+        from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGroupBox, QRadioButton
         try:
-            excel_bytes = api.export_excel()
+            tests = api.get_tests()
+        except APIError:
+            tests = []
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(t("rw.export_dlg_title"))
+        dlg.setMinimumWidth(360)
+        vlayout = QVBoxLayout(dlg)
+
+        info = QLabel(t("rw.export_dlg_info"))
+        info.setWordWrap(True)
+        vlayout.addWidget(info)
+
+        grp = QGroupBox(t("rw.export_dlg_select"))
+        grp_layout = QVBoxLayout(grp)
+
+        all_radio = QRadioButton(t("rw.export_dlg_all"))
+        all_radio.setChecked(True)
+        grp_layout.addWidget(all_radio)
+
+        test_radios = []
+        for test in tests[:20]:
+            rb = QRadioButton(test.get("name", f"Test #{test['id']}"))
+            rb.setProperty("test_id", test["id"])
+            grp_layout.addWidget(rb)
+            test_radios.append(rb)
+
+        vlayout.addWidget(grp)
+
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        vlayout.addWidget(btns)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        test_id = None
+        for rb in test_radios:
+            if rb.isChecked():
+                test_id = rb.property("test_id")
+                break
+
+        try:
+            excel_bytes = api.export_excel(test_id=test_id)
+            default_name = "natijalar.xlsx" if not test_id else f"natijalar_test{test_id}.xlsx"
             file_path, _ = QFileDialog.getSaveFileName(
-                self, t("rw.export_btn"), t("rw.export_save_ph"),
+                self, t("rw.export_btn"), default_name,
                 "Excel Files (*.xlsx)"
             )
             if file_path:
                 with open(file_path, "wb") as f:
                     f.write(excel_bytes)
                 QMessageBox.information(self, t("rw.export_ok"), t("rw.export_saved", path=file_path))
-                os.startfile(file_path) if os.name == "nt" else None
+                if os.name == "nt":
+                    os.startfile(file_path)
         except APIError as e:
             QMessageBox.critical(self, t("common.error"), str(e))
         except Exception as e:
